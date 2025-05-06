@@ -1,0 +1,104 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "XResource Entity JSON Schema",
+    "description": "Schema format to define metadata for an entity/table used by XMetadata annotation",
+    "type": "object",
+    "required": ["table", "fields"],
+    "properties": {
+      "table": {
+        "type": "string",
+        "description": "Name of the table/entity"
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional description of the entity"
+      },
+      "fields": {
+        "type": "object",
+        "description": "Map of field names to their metadata definitions",
+        "patternProperties": {
+          "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Human-readable label for the field (used in UI)"
+              },
+              "description": {
+                "type": "string",
+                "description": "Detailed description of the field"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["string", "integer", "boolean", "number", "date"],
+                "description": "Data type of the field"
+              },
+              "required": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether this field is mandatory"
+              },
+              "format": {
+                "type": "string",
+                "enum": ["date", "date-time", "email", "uuid"],
+                "description": "Special format constraints if any"
+              },
+              "includeinjsonform": {
+                "type": "boolean",
+                "default": false,
+                "description": "Whether to include this field in json form or not"
+              },
+              "displayseq": {
+                "type": "number",
+                "description": "Field display sequence for json form"
+              },
+              "default": {
+                "type": ["string", "number", "boolean", "null"],
+                "description": "Default value for the field"
+              },
+              "enum": {
+                "type": "array",
+                "description": "Allowed values for this field",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "primaryKey": {
+                "type": "boolean",
+                "default": false,
+                "description": "Marks this field as a primary key"
+              },
+              "autoIncrement": {
+                "type": "boolean",
+                "default": false,
+                "description": "Marks if this field auto-increments"
+              },
+              "foreignKey": {
+                "type": "object",
+                "description": "Foreign key reference details",
+                "required": ["table", "column"],
+                "properties": {
+                  "table": { "type": "string" },
+                  "column": { "type": "string" },
+                  "onDelete": {
+                    "type": "string",
+                    "enum": ["CASCADE", "SET NULL", "RESTRICT", "NO ACTION"]
+                  },
+                  "onUpdate": {
+                    "type": "string",
+                    "enum": ["CASCADE", "SET NULL", "RESTRICT", "NO ACTION"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  }
+  
