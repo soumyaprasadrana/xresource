@@ -2,7 +2,12 @@ package org.xresource.core.util;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
-import org.xresource.core.annotation.XResource;
+import org.xresource.core.annotations.XCronResource;
+import org.xresource.core.annotations.XResource;
+import org.xresource.core.annotations.XResourceExposeAsEmbeddedResource;
+import org.xresource.core.annotations.XResourceIgnore;
+
+import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 import java.net.JarURLConnection;
@@ -13,12 +18,13 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-public class XResourceEntityScanner {
+@RequiredArgsConstructor
+public class XResourceRepositoryScanner {
 
     @Value("${xresource.metadata.autoScanEnabled:true}")
-    private static boolean autoScanEnabled;
+    private boolean autoScanEnabled;
 
-    public static Set<Class<?>> scanRepositoriesWithXResource(String basePackage) {
+    public Set<Class<?>> scanRepositoriesWithXResource(String basePackage) {
         Set<Class<?>> result = new HashSet<>();
         String path = basePackage.replace('.', '/');
 
@@ -41,7 +47,7 @@ public class XResourceEntityScanner {
         return result;
     }
 
-    private static void scanDirectory(String directoryPath, String packageName, Set<Class<?>> result) {
+    private void scanDirectory(String directoryPath, String packageName, Set<Class<?>> result) {
         var dir = new java.io.File(directoryPath);
         if (!dir.exists())
             return;
@@ -55,7 +61,15 @@ public class XResourceEntityScanner {
                     Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass(className);
                     if (autoScanEnabled) {
                         if (clazz.isAnnotationPresent(Repository.class)) {
-                            result.add(clazz);
+                            if (!clazz.isAnnotationPresent(XResourceIgnore.class))
+                                result.add(clazz);
+                            else if (clazz.isAnnotationPresent(XResourceIgnore.class)
+                                    && clazz.isAnnotationPresent(XResourceExposeAsEmbeddedResource.class))
+                                result.add(clazz);
+                            else if (clazz.isAnnotationPresent(XResourceIgnore.class)
+                                    && clazz.isAnnotationPresent(XCronResource.class))
+                                result.add(clazz);
+
                         }
                     } else {
                         if (clazz.isAnnotationPresent(Repository.class) && clazz.isAnnotationPresent(XResource.class)) {
@@ -69,7 +83,7 @@ public class XResourceEntityScanner {
         }
     }
 
-    private static void scanJar(URL resource, String path, String basePackage, Set<Class<?>> result) {
+    private void scanJar(URL resource, String path, String basePackage, Set<Class<?>> result) {
         try {
             JarURLConnection jarConn = (JarURLConnection) resource.openConnection();
             JarFile jarFile = jarConn.getJarFile();
@@ -79,9 +93,22 @@ public class XResourceEntityScanner {
                     String className = name.replace('/', '.').replace(".class", "");
                     try {
                         Class<?> clazz = Thread.currentThread().getContextClassLoader().loadClass(className);
-                        if (clazz.isAnnotationPresent(XResource.class)) {
-                            result.add(clazz);
+                        if (autoScanEnabled) {
+                            if (clazz.isAnnotationPresent(Repository.class)) {
+                                if (!clazz.isAnnotationPresent(XResourceIgnore.class))
+                                    result.add(clazz);
+                                else if (clazz.isAnnotationPresent(XResourceIgnore.class)
+                                        && clazz.isAnnotationPresent(XResourceExposeAsEmbeddedResource.class))
+                                    result.add(clazz);
+
+                            }
+                        } else {
+                            if (clazz.isAnnotationPresent(Repository.class)
+                                    && clazz.isAnnotationPresent(XResource.class)) {
+                                result.add(clazz);
+                            }
                         }
+
                     } catch (Throwable ignored) {
                     }
                 }
@@ -89,5 +116,9 @@ public class XResourceEntityScanner {
         } catch (IOException e) {
             throw new RuntimeException("Failed to scan JAR for package: " + basePackage, e);
         }
+    }
+
+    public boolean isAutoScanEnabled() {
+        return autoScanEnabled;
     }
 }

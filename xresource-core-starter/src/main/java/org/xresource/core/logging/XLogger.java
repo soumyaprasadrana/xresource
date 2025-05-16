@@ -171,7 +171,7 @@ public class XLogger {
         trace("➡️ Entering method: " + methodName, args);
     }
 
-    public void exit(String methodName, Object result, Object... args) {
-        trace("⬅️ Exiting method: " + methodName + " with result:\n" + result, args);
+    public void exit(String methodName, Object... args) {
+        trace("⬅️ Exiting method: " + methodName, args);
     }
 }

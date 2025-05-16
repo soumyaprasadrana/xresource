@@ -1,12 +1,6 @@
 package org.xresource.core.form;
 
-import org.springframework.stereotype.Component;
-
-import lombok.RequiredArgsConstructor;
-
-@Component
-@RequiredArgsConstructor
+//Form Generator code will be moved to this class
 public class XJSONFormGenerator {
 
-    
 }

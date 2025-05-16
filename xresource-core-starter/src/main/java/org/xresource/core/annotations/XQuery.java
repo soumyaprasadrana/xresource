@@ -1,4 +1,4 @@
-package org.xresource.core.annotation;
+package org.xresource.core.annotations;
 
 import java.lang.annotation.*;
 
@@ -7,8 +7,12 @@ import java.lang.annotation.*;
 @Target(ElementType.TYPE)
 public @interface XQuery {
     String name();
+
     String where();
+
     String[] contextParams() default {};
+
     boolean autoApply() default false;
-    String[] appliesToRoles() default {"*"};
+
+    String[] appliesToRoles() default { "*" };
 }

@@ -1,7 +1,6 @@
 package org.xresource.core.cron;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -9,27 +8,22 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.concurrent.ConcurrentTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
-import org.springframework.stereotype.Component;
-
-import org.xresource.core.annotation.XQuery;
+import org.xresource.core.annotations.XQuery;
+import org.xresource.core.logging.XLogger;
 import org.xresource.core.model.XResourceMetadata;
 import org.xresource.core.query.XQueryContextProvider;
 import org.xresource.core.query.XQueryExecutor;
 import org.xresource.core.registry.XResourceMetadataRegistry;
 
-import jakarta.annotation.PostConstruct;
-
-@Component
-@Order(2)
 public class XJobRunner implements ApplicationRunner {
 
     private final XJobRegistry registry;
     private final XQueryExecutor executor;
     private final XResourceMetadataRegistry resourceRegistry;
     private final XQueryContextProvider xQueryProvider;
+    private final XLogger log = XLogger.forClass(XJobRunner.class);
 
     private final ConcurrentTaskScheduler scheduler = new ConcurrentTaskScheduler();
 
@@ -38,8 +32,7 @@ public class XJobRunner implements ApplicationRunner {
             XJobRegistry registry,
             XQueryExecutor executor,
             XResourceMetadataRegistry resourceRegistry,
-            XQueryContextProvider xQueryProvider
-    ) {
+            XQueryContextProvider xQueryProvider) {
         this.registry = registry;
         this.executor = executor;
         this.resourceRegistry = resourceRegistry;
@@ -48,7 +41,7 @@ public class XJobRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        System.out.println("🚀 XJobRunner starting...");
+        log.info("🚀 XJobRunner starting...");
 
         for (XRegisteredJob job : registry.getAllJobs()) {
             Runnable task = () -> {
@@ -57,6 +50,14 @@ public class XJobRunner implements ApplicationRunner {
 
                     if (!job.getResource().isEmpty() && !job.getQuery().isEmpty()) {
                         XResourceMetadata metadata = resourceRegistry.get(job.getResource());
+                        if (metadata == null) {
+                            // try from ignored resource
+                            metadata = resourceRegistry.getEmbeddedResource(job.getResource());
+                        }
+                        if (metadata == null) {
+                            metadata = resourceRegistry.getCronResource(job.getResource());
+                        }
+
                         Optional<XQuery> optQuery = metadata.getXQuery(job.getQuery());
 
                         if (optQuery.isEmpty()) {
@@ -78,7 +79,7 @@ public class XJobRunner implements ApplicationRunner {
             };
 
             scheduler.schedule(task, new CronTrigger(job.getCron()));
-            System.out.println("📅 Scheduled job: " + job.getName() + " -> " + job.getCron());
+            log.info("📅 Scheduled job: " + job.getName() + " -> " + job.getCron());
         }
     }
 }

@@ -1,4 +1,4 @@
-package org.xresource.core.annotation;
+package org.xresource.core.annotations;
 
 import java.lang.annotation.*;
 import static java.lang.annotation.ElementType.*;
@@ -7,5 +7,6 @@ import static java.lang.annotation.ElementType.*;
 @Target(TYPE)
 public @interface XJSONFormValidatorRule {
     XJSONFormValidatorType type();
+
     String value() default "";
 }

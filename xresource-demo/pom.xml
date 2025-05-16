@@ -62,7 +62,7 @@
       <version>0.11.5</version>
       <scope>runtime</scope>
     </dependency>
-	
+
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt-jackson</artifactId>
@@ -93,10 +93,16 @@
 			<scope>test</scope>
 		</dependency>
 	<dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>2.8.8</version>
+  </dependency>
+	<dependency>
         <groupId>org.xresource</groupId>
-        <artifactId>core</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <artifactId>core-starter</artifactId>
+        <version>0.1</version>
     </dependency>
+	
 	</dependencies>
 
 	<build>

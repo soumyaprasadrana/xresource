@@ -5,9 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public class XJobRegistry {
 
     private final Map<String, XRegisteredJob> jobs = new HashMap<>();

@@ -1,4 +1,4 @@
-package org.xresource.core.annotation;
+package org.xresource.core.annotations;
 
 public enum XJSONFormValidatorType {
     REQUIRED,
@@ -8,7 +8,9 @@ public enum XJSONFormValidatorType {
     REGEX,
     MIN,
     MAX,
-    ENUM,           
+    ENUM,
     DATE_BEFORE,
-    DATE_AFTER
+    DATE_AFTER,
+    READONLY,
+    HIDDEN
 }

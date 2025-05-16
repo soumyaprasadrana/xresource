@@ -4,11 +4,12 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.xresource.core.annotations.AccessLevel;
+import org.xresource.core.annotations.XMetadata;
+import org.xresource.core.annotations.XResourceAuthGroup;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.xresource.core.annotation.AccessLevel;
-import org.xresource.core.annotation.XMetadata;
-import org.xresource.core.annotation.XResourceAuthGroup;
 
 @JsonIgnoreProperties({ "users", "hibernateLazyInitializer", "handler" })
 @Entity
@@ -29,7 +30,6 @@ public class Team {
 
     // Relationships (reverse mappings)
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonBackReference
     private List<User> users;
 
     // Getters and setters

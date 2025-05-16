@@ -1,7 +1,6 @@
 package org.xresource.demo.config;
 
 import org.xresource.demo.security.JwtAuthenticationFilter;
-import jakarta.servlet.http.HttpServletResponse;
 
 import org.xresource.demo.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +34,12 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfig.corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api/auth/login", "/api/auth/logout", "/api/auth/validate").permitAll()
-                        .requestMatchers("/api/auth/whoami", "/api/resource/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/", "/api/auth/login", "/api/auth/logout", "/api/auth/validate",
+                                "/api/resources/**", "swagger-ui.html", "/v3/api-docs", "/v3/api-docs/**",
+                                "/api/xresources-openapi/**",
+                                "/swagger-ui/**")
+                        .permitAll()
+                        .requestMatchers("/api/auth/whoami").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

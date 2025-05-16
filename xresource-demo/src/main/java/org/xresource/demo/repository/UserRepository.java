@@ -1,40 +1,37 @@
 package org.xresource.demo.repository;
 
-import org.xresource.demo.config.AuthorizationRoles;
+import org.xresource.core.annotations.XJSONFormFieldValidaor;
+import org.xresource.core.annotations.XJSONFormValidatorRule;
+import org.xresource.core.annotations.XJSONFormValidatorType;
+import org.xresource.core.annotations.XJSONFormValidators;
+import org.xresource.core.annotations.XQueries;
+import org.xresource.core.annotations.XQuery;
 import org.xresource.demo.entity.User;
 
-import org.xresource.core.annotation.AccessLevel;
-import org.xresource.core.annotation.XJSONFormFieldValidaor;
-import org.xresource.core.annotation.XJSONFormValidatorRule;
-import org.xresource.core.annotation.XJSONFormValidatorType;
-import org.xresource.core.annotation.XJSONFormValidators;
-import org.xresource.core.annotation.XQueries;
-import org.xresource.core.annotation.XQuery;
-import org.xresource.core.annotation.XResource;
-import org.xresource.core.annotation.XResourceAuthGroup;
+import io.swagger.v3.oas.annotations.Hidden;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-@XResource(table = "user")
-@XResourceAuthGroup(role = "ROLE_ANONYMOUS", access = AccessLevel.NONE) // users
+// @XResourceAuthGroups(value = { @XResourceAuthGroup(role = "*", access =
+// AccessLevel.NONE) }) //
+// users
 @XQueries(value = {
-        @XQuery(name = "filterByTeam", where = "team.teamId=:context_loggeduser_teamId", contextParams = {
-                "context_loggeduser_teamId" }, autoApply = true, appliesToRoles = { "ROLE_USER" }),
+                @XQuery(name = "filterByTeam", where = "team.teamId=:context_loggeduser_teamId", contextParams = {
+                                "context_loggeduser_teamId" }, autoApply = true, appliesToRoles = { "ROLE_USER" }),
+                @XQuery(name = "filterByEmail", where = "email=:email", contextParams = { "email" })
 })
 @XJSONFormValidators(value = {
-        @XJSONFormFieldValidaor(name = "email", rules = {
-                @XJSONFormValidatorRule(type = XJSONFormValidatorType.EMAIL)
-        }),
-        @XJSONFormFieldValidaor(name = "firstName", rules = {
-                @XJSONFormValidatorRule(type = XJSONFormValidatorType.MAX_LENGTH, value = "100")
-        })
+                @XJSONFormFieldValidaor(name = "firstName", rules = {
+                                @XJSONFormValidatorRule(type = XJSONFormValidatorType.MAX_LENGTH, value = "100")
+                })
 })
 public interface UserRepository extends JpaRepository<User, String> {
 
-    Optional<User> findByEmail(String email);
+        Optional<User> findByEmail(String email);
 
-    Optional<User> findByUserId(String userId); // Explicit finder for userId
+        Optional<User> findByUserId(String userId); // Explicit finder for userId
 }

@@ -1,4 +1,4 @@
-package org.xresource.core.annotation;
+package org.xresource.core.annotations;
 
 public enum AccessLevel {
     NONE, READ, WRITE;

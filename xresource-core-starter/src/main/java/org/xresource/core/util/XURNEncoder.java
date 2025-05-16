@@ -2,6 +2,7 @@ package org.xresource.core.util;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -9,23 +10,31 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.xresource.core.model.XResourceMetadata;
-import org.xresource.core.registry.XResourceMetadataRegistry;
-
-import java.util.Base64;
 
 /**
- * Utility to encode/decode resource URNs in the format:
- * urn:xresource:{resourceName}:{base64EncodedKeyString}
+ * Utility class for encoding and decoding URNs (Uniform Resource Names)
+ * using a compact Base62 format. A URN identifies a resource by combining
+ * the resource name and its key(s) into a unique string format:
  *
- * Supports both simple and composite primary keys.
+ * <pre>
+ *     uxr:{resource}:{base62EncodedKeyString}
+ * </pre>
  */
 public class XURNEncoder {
 
-    private static final String URN_PREFIX = "urn:xresource:";
-    private static final Pattern URN_PATTERN = Pattern.compile("^urn:xresource:([a-zA-Z0-9_-]+):([a-zA-Z0-9=+/_-]+)$");
+    private static final String URN_PREFIX = "uxr:";
+    private static final Pattern URN_PATTERN = Pattern.compile("^uxr:([a-zA-Z0-9_-]+):([a-zA-Z0-9]+)$");
+    private static final char[] BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            .toCharArray();
+
+    // ------------------- PUBLIC ENCODE -------------------
 
     /**
-     * Encodes a single ID as URN (simple key)
+     * Encodes a simple (single-key) URN.
+     *
+     * @param resourceName the name of the resource
+     * @param id           the ID of the resource
+     * @return encoded URN string
      */
     public static String encode(String resourceName, Object id) {
         Map<String, Object> keyMap = new LinkedHashMap<>();
@@ -34,30 +43,33 @@ public class XURNEncoder {
     }
 
     /**
-     * Encodes a composite key map into a URN
+     * Encodes a composite-key URN.
+     *
+     * @param resourceName the name of the resource
+     * @param keyMap       a map of key field names and their values
+     * @return encoded URN string
      */
     public static String encode(String resourceName, Map<String, Object> keyMap) {
-        StringBuilder builder = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         keyMap.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    builder.append(entry.getKey())
-                            .append("=")
-                            .append(entry.getValue())
-                            .append("&");
-                });
+                .forEach(entry -> sb.append(entry.getKey()).append('=').append(entry.getValue()).append('&'));
 
-        if (builder.length() > 0) {
-            builder.setLength(builder.length() - 1); // remove trailing '&'
-        }
-
-        String keyString = builder.toString();
-        String encoded = Base64.getUrlEncoder().encodeToString(keyString.getBytes(StandardCharsets.UTF_8));
+        if (sb.length() > 0)
+            sb.setLength(sb.length() - 1); // trim trailing '&'
+        byte[] utf8Bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+        String encoded = encodeBase62(utf8Bytes);
         return URN_PREFIX + resourceName + ":" + encoded;
     }
 
+    // ------------------- PUBLIC DECODE -------------------
+
     /**
-     * Decodes a URN string into a resourceName and keyMap
+     * Decodes a URN into its resource name and key map.
+     *
+     * @param urn the URN string to decode
+     * @return URN object containing resource name and key-value map
+     * @throws URISyntaxException if the URN is invalid
      */
     public static URN decode(String urn) throws URISyntaxException {
         Matcher matcher = URN_PATTERN.matcher(urn);
@@ -66,11 +78,12 @@ public class XURNEncoder {
         }
 
         String resourceName = matcher.group(1);
-        String encoded = matcher.group(2);
-        String decodedKeyString = new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8);
+        String base62Part = matcher.group(2);
+        byte[] decodedBytes = decodeBase62(base62Part);
+        String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
 
         Map<String, String> keyMap = new LinkedHashMap<>();
-        for (String part : decodedKeyString.split("&")) {
+        for (String part : decodedString.split("&")) {
             String[] pair = part.split("=", 2);
             if (pair.length == 2) {
                 keyMap.put(pair[0], pair[1]);
@@ -80,31 +93,64 @@ public class XURNEncoder {
         return new URN(resourceName, keyMap);
     }
 
-    public static String capitalize(String str) {
-        if (str == null || str.isEmpty()) {
-            return str;
+    // ------------------- BASE62 ENCODING -------------------
+
+    /**
+     * Encodes a byte array into a Base62 string.
+     *
+     * @param data byte array to encode
+     * @return Base62 string
+     */
+    private static String encodeBase62(byte[] data) {
+        BigInteger num = new BigInteger(1, data);
+        StringBuilder sb = new StringBuilder();
+        while (num.compareTo(BigInteger.ZERO) > 0) {
+            BigInteger[] divRem = num.divideAndRemainder(BigInteger.valueOf(62));
+            sb.append(BASE62_CHARS[divRem[1].intValue()]);
+            num = divRem[0];
         }
-        return str.substring(0, 1).toUpperCase() + str.substring(1);
+        return sb.reverse().toString();
     }
 
     /**
-     * Get URN for an entity
+     * Decodes a Base62 string into a byte array.
+     *
+     * @param base62 Base62-encoded string
+     * @return decoded byte array
+     */
+    private static byte[] decodeBase62(String base62) {
+        BigInteger num = BigInteger.ZERO;
+        for (char c : base62.toCharArray()) {
+            int index = new String(BASE62_CHARS).indexOf(c);
+            if (index < 0)
+                throw new IllegalArgumentException("Invalid base62 character: " + c);
+            num = num.multiply(BigInteger.valueOf(62)).add(BigInteger.valueOf(index));
+        }
+        byte[] bytes = num.toByteArray();
+        return (bytes.length > 0 && bytes[0] == 0) ? Arrays.copyOfRange(bytes, 1, bytes.length) : bytes;
+    }
+
+    // ------------------- REFLECTION + UTILS -------------------
+
+    /**
+     * Generates a URN for an entity object using resource metadata.
+     *
+     * @param entity       the entity instance
+     * @param resourceName the name of the resource
+     * @param metadata     metadata describing the entity's keys
+     * @return encoded URN string or null on error
      */
     public static String getURN(Object entity, String resourceName, XResourceMetadata metadata) {
         try {
             Map<String, Object> keyMap = new LinkedHashMap<>();
             String primaryKeys = metadata.getPrimaryKey();
             String[] compositeKeys;
-            String urn;
 
             if (metadata.hasCompositeKey()) {
-                // Attempt to access the embedded ID getter
                 Method getter = entity.getClass().getMethod("get" + capitalize(metadata.getEmbeddedKeyFieldName()));
                 Object embeddedKeyObj = getter.invoke(entity);
-
-                if (embeddedKeyObj == null) {
+                if (embeddedKeyObj == null)
                     throw new IllegalStateException("Embedded key object is null");
-                }
 
                 compositeKeys = primaryKeys.split(",");
                 for (String field : compositeKeys) {
@@ -112,39 +158,61 @@ public class XURNEncoder {
                     Object embeddedKeyFieldObj = emIdFieldGetter.invoke(embeddedKeyObj);
                     keyMap.put(field, embeddedKeyFieldObj.toString());
                 }
-                urn = XURNEncoder.encode(resourceName, keyMap);
+
+                return encode(resourceName, keyMap);
             } else {
                 Object idValue = getFieldValue(entity, primaryKeys);
-                urn = XURNEncoder.encode(resourceName, idValue);
+                return encode(resourceName, idValue);
             }
 
-            return urn;
-
         } catch (Exception ex) {
-            // Log and continue — do not block response
             ex.printStackTrace();
-            System.err.println("Failed to generate URN for " + resourceName + ": " + ex.getMessage());
             return null;
         }
     }
 
+    /**
+     * Retrieves the value of a field using reflection.
+     *
+     * @param entity    object instance
+     * @param fieldName field to access
+     * @return field value
+     */
     public static Object getFieldValue(Object entity, String fieldName) {
         try {
             Field field = entity.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
             return field.get(entity);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to access field '" + fieldName + "' in entity", e);
+            throw new RuntimeException("Failed to access field '" + fieldName + "'", e);
         }
     }
 
     /**
-     * Container class to hold decoded URN data.
+     * Capitalizes the first character of a string.
+     *
+     * @param str input string
+     * @return capitalized string
+     */
+    public static String capitalize(String str) {
+        return (str == null || str.isEmpty()) ? str : str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    // ------------------- URN RECORD -------------------
+
+    /**
+     * Represents a decoded URN containing the resource name and key map.
      */
     public static class URN {
         private final String resourceName;
         private final Map<String, String> keyMap;
 
+        /**
+         * Constructs a URN instance.
+         *
+         * @param resourceName the name of the resource
+         * @param keyMap       the key-value pairs of the identifier
+         */
         public URN(String resourceName, Map<String, String> keyMap) {
             this.resourceName = resourceName;
             this.keyMap = keyMap;
@@ -160,26 +228,23 @@ public class XURNEncoder {
 
         @Override
         public String toString() {
-            return "URN{" +
-                    "resourceName='" + resourceName + '\'' +
-                    ", keyMap=" + keyMap +
-                    '}';
+            return "URN{resourceName='" + resourceName + "', keyMap=" + keyMap + '}';
         }
     }
 
-    // Demo
+    // ------------------- TEST MAIN -------------------
+
+    /**
+     * Demonstrates simple and composite URN encoding/decoding.
+     */
     public static void main(String[] args) throws Exception {
-        // Simple key
         String urn1 = encode("component", 123);
         System.out.println("URN (simple): " + urn1);
-        URN decoded1 = decode(urn1);
-        System.out.println("Decoded: " + decoded1);
+        System.out.println("Decoded: " + decode(urn1));
 
-        // Composite key
         Map<String, Object> composite = Map.of("componentId", "comp123", "version", "v1.0.2");
         String urn2 = encode("patch", composite);
         System.out.println("URN (composite): " + urn2);
-        URN decoded2 = decode(urn2);
-        System.out.println("Decoded: " + decoded2);
+        System.out.println("Decoded: " + decode(urn2));
     }
 }

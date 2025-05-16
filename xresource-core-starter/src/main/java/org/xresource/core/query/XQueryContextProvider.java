@@ -1,10 +1,7 @@
 package org.xresource.core.query;
 
-import org.springframework.stereotype.Component;
-
 import java.util.*;
 
-@Component
 public class XQueryContextProvider {
 
     public Map<String, Object> buildContext(Map<String, Object> userContext, Map<String, String> dynamicFilters) {
@@ -12,7 +9,7 @@ public class XQueryContextProvider {
 
         // Add user/system context first
         if (userContext != null) {
-            merged.put("user",userContext);
+            merged.put("user", userContext);
         }
 
         // Then override or add dynamic filters
@@ -29,6 +26,8 @@ public class XQueryContextProvider {
         Map<String, Object> merged = new HashMap<>();
         return merged;
     }
+
+    @SuppressWarnings("unused")
     private Map<String, Object> flattenNestedContext(Map<String, Object> input, String prefix) {
         Map<String, Object> flat = new HashMap<>();
         for (Map.Entry<String, Object> entry : input.entrySet()) {
