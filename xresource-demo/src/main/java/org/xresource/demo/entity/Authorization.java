@@ -1,7 +1,8 @@
 package org.xresource.demo.entity;
 
-import org.xresource.core.annotation.XMetadata;
+import org.xresource.core.annotations.XMetadata;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +24,12 @@ public class Authorization {
 
     @Column(name = "is_admin", nullable = false)
     private boolean isAdmin;
+
+    @MapsId
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", foreignKey = @ForeignKey(name = "fk_authorization_user"))
+    @Hidden
+    private User user;
 
     public boolean isAdmin() {
         return this.isAdmin;

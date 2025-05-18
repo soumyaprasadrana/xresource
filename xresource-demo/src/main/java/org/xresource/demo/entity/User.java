@@ -1,37 +1,62 @@
 package org.xresource.demo.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import jakarta.validation.constraints.Email;
+import lombok.Getter;
+import lombok.Setter;
 
-import org.xresource.core.annotation.XMetadata;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
+import org.xresource.core.annotations.XControlledByAction;
+import org.xresource.core.annotations.XFieldAccess;
+import org.xresource.core.annotations.XFieldAction;
+import org.xresource.core.annotations.XHidden;
+import org.xresource.core.annotations.XJSONFormFieldMetadata;
+import org.xresource.core.annotations.XMetadata;
 
 @Entity
 @Table(name = "user", schema = "xresourcedemo", indexes = {
         @Index(name = "idx_user_email", columnList = "email")
 })
 @XMetadata(path = "schemas/user.json")
+@Getter
+@Setter
 public class User {
 
     @Id
     @Column(name = "user_id", nullable = false, length = 255)
+    @XJSONFormFieldMetadata(description = "User ID", displaySeq = 1, label = "User ID")
     private String userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_team", referencedColumnName = "team_id", foreignKey = @ForeignKey(name = "fk_user_team"))
+    @JoinColumn(name = "user_team", nullable = false, referencedColumnName = "team_id", foreignKey = @ForeignKey(name = "fk_user_team"))
     private Team team;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @XJSONFormFieldMetadata(description = "Authorization of the user", displaySeq = 3, label = "Authorization")
+    private Authorization authorization;
+
     @Column(name = "user_pass", nullable = false, columnDefinition = "TEXT")
-    @JsonIgnore
+    @XHidden
+    @XJSONFormFieldMetadata(description = "Password of the user", displaySeq = 2, label = "Password")
     private String userPass;
 
     @Column(name = "email", nullable = false, unique = true, length = 255)
+    @Email
     private String email;
 
     @Column(name = "first_name", length = 100)
+    @XJSONFormFieldMetadata(description = "First Name of the user", displaySeq = 2, label = "First Name")
     private String firstName;
 
     @Column(name = "last_name", length = 100)
+    // @XResourceAuthGroups(value = { @XResourceAuthGroup(role = "*", access =
+    // AccessLevel.NONE) })
+    @XJSONFormFieldMetadata(description = "Last Name of the user", displaySeq = 3, label = "Last Name")
+    @XControlledByAction(actions = {
+            @XFieldAction(name = "updateLastNameToSoumya", value = "soumya"),
+            @XFieldAction(name = "updateLastNameToNilesh", value = "Nilesh")
+    }, allowInsert = false, allowUpdate = false)
+    @XFieldAccess(denyRoles = { "*" }, readRoles = { "ROLE_USER" }, writeRoles = { "ROLE_ADMIN" })
     private String lastName;
 
     @Column(name = "created_at", updatable = false, insertable = false)
@@ -39,72 +64,6 @@ public class User {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    // Getters and setters
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public Team getTeam() {
-        return team;
-    }
-
-    public void setTeam(Team team) {
-        this.team = team;
-    }
-
-    public String getUserPass() {
-        return userPass;
-    }
-
-    public void setUserPass(String userPass) {
-        this.userPass = userPass;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 
     @PrePersist
     @PreUpdate

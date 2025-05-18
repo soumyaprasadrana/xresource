@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-
-import org.xresource.core.annotation.XMetadata;
+import org.xresource.core.annotations.XMetadata;
 
 @Entity
 @Table(name = "session", schema = "xresourcedemo")

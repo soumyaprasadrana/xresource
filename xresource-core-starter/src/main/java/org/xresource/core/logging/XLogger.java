@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -167,11 +169,29 @@ public class XLogger {
         }
     }
 
+    public void error(String message, Throwable t) {
+        if (!configuredLevel.includes(LogLevel.ERROR))
+            return;
+        String stackTrace = formatStackTrace(t);
+        // Compose combined message with stack trace appended
+        String combinedMessage = message + "\n" + stackTrace;
+        log("🚨", RED, "ERROR", combinedMessage, LogLevel.ERROR);
+    }
+
+    private String formatStackTrace(Throwable t) {
+        if (t == null)
+            return "";
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        t.printStackTrace(pw);
+        return sw.toString();
+    }
+
     public void enter(String methodName, Object... args) {
         trace("➡️ Entering method: " + methodName, args);
     }
 
-    public void exit(String methodName, Object result, Object... args) {
-        trace("⬅️ Exiting method: " + methodName + " with result:\n" + result, args);
+    public void exit(String methodName, Object... args) {
+        trace("⬅️ Exiting method: " + methodName, args);
     }
 }
