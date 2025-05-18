@@ -34,6 +34,7 @@ module org.xresource {
     requires com.fasterxml.jackson.datatype.jsr310;
     requires org.springdoc.openapi.ui;
     requires io.swagger.v3.oas.annotations;
+    requires jakarta.inject;
     requires org.slf4j;
     requires static lombok;
     requires java.management;

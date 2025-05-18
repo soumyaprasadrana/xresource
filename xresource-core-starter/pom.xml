@@ -3,10 +3,35 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.xresource</groupId>
-  <artifactId>core-starter</artifactId>
-  <version>0.1</version>
-  <name>core-starter</name>
+   <groupId>io.github.soumyaprasadrana</groupId>
+    <artifactId>xresource-starter</artifactId>
+    <version>0.1</version>
+    <name>xresource-starter</name>
+    <description>Lightweight metadata-driven Spring Boot plugin framework for RESTful resource and patch lifecycle management</description>
+    <url>https://github.com/soumyaprasadrana/xresource</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>soumyaprasadrana</id>
+            <name>Soumya Prasad Rana</name>
+            <url>https://github.com/soumyaprasadrana</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/soumyaprasadrana/xresource</url>
+        <connection>scm:git:https://github.com/soumyaprasadrana/xresource.git</connection>
+        <developerConnection>scm:git:git@github.com:soumyaprasadrana/xresource.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
 
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -87,6 +112,12 @@
       <version>4.11</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>jakarta.inject</groupId>
+      <artifactId>jakarta.inject-api</artifactId>
+      <version>2.0.1</version>
+  </dependency>
   </dependencies>
 
   <build>
@@ -98,8 +129,34 @@
          <configuration>
             <source>17</source>
             <target>17</target>
+            <annotationProcessorPaths>
+                <path>
+                  <groupId>org.projectlombok</groupId>
+                  <artifactId>lombok</artifactId>
+                  <version>1.18.30</version>
+                </path>
+            </annotationProcessorPaths>
        </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.6.3</version>
+        <executions>
+          <execution>
+            <id>aggregate</id>
+            <phase>package</phase>
+            <goals>
+              <goal>aggregate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+            <source>17</source>
+            <failOnError>false</failOnError> 
+            <additionalJOption>-Xdoclint:none</additionalJOption>
+        </configuration>
+    </plugin>
     </plugins>
   </build>
 </project>
