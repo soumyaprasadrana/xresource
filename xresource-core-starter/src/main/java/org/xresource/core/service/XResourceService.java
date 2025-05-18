@@ -5,20 +5,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.xresource.core.annotations.AccessLevel;
 import org.xresource.core.annotations.XQuery;
-import org.xresource.core.auth.XAccessManager;
-import org.xresource.core.auth.XRoleBasedAccessEvaluator;
-import org.xresource.core.exception.ResourceNotFoundException;
-import org.xresource.core.exception.XResourceAlreadyExistsException;
-import org.xresource.core.exception.XResourceException;
 import org.xresource.core.hook.XResourceEventContext;
 import org.xresource.core.hook.XResourceEventType;
 import org.xresource.core.hook.XResourceHookRegistry;
-import org.xresource.core.model.XFieldMetadata;
-import org.xresource.core.model.XResourceMetadata;
-import org.xresource.core.query.XQueryContextProvider;
-import org.xresource.core.query.XQueryExecutor;
-import org.xresource.core.registry.XResourceMetadataRegistry;
+import org.xresource.internal.query.XQueryContextProvider;
+import org.xresource.internal.query.XQueryExecutor;
 import org.xresource.core.validation.ValidationContext;
+import org.xresource.internal.auth.XAccessManager;
+import org.xresource.internal.auth.XRoleBasedAccessEvaluator;
+import org.xresource.internal.exception.ResourceNotFoundException;
+import org.xresource.internal.exception.XResourceAlreadyExistsException;
+import org.xresource.internal.exception.XResourceException;
+import org.xresource.internal.models.XFieldMetadata;
+import org.xresource.internal.models.XResourceMetadata;
+import org.xresource.internal.registry.XResourceMetadataRegistry;
 
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -258,7 +258,7 @@ public class XResourceService {
         }
 
         // Before create hook
-        XResourceEventContext context = new XResourceEventContext(entity, metadata, roles, extra);
+        XResourceEventContext context = new XResourceEventContext(entity, metadata.getResourceName(), roles, extra);
         hooksRegistry.executeHooks(resourceName, XResourceEventType.BEFORE_CREATE, context);
 
         // Persist entity
@@ -266,7 +266,7 @@ public class XResourceService {
 
         // After create hook
         hooksRegistry.executeHooks(resourceName, XResourceEventType.AFTER_CREATE,
-                new XResourceEventContext(saved, metadata, roles, extra));
+                new XResourceEventContext(saved, metadata.getResourceName(), roles, extra));
 
         return saved;
     }
@@ -278,14 +278,14 @@ public class XResourceService {
 
         // Run validation and hook (optional)
         xAccessManager.validateEntity(entity, ValidationContext.OperationType.CREATE);
-        XResourceEventContext ctx = new XResourceEventContext(entity, metadata, roles, Map.of());
+        XResourceEventContext ctx = new XResourceEventContext(entity, metadata.getResourceName(), roles, Map.of());
         hooksRegistry.executeHooks(resourceName, XResourceEventType.BEFORE_CREATE, ctx);
 
         // Save using JPA Repo (cascading works)
         Object saved = getRepository(resourceName).save(entity);
 
         hooksRegistry.executeHooks(resourceName, XResourceEventType.AFTER_CREATE,
-                new XResourceEventContext(saved, metadata, roles, Map.of()));
+                new XResourceEventContext(saved, metadata.getResourceName(), roles, Map.of()));
 
         return saved;
     }
@@ -317,7 +317,8 @@ public class XResourceService {
         }
 
         // Fire BEFORE_UPDATE hook
-        XResourceEventContext context = new XResourceEventContext(existingEntity, metadata, roles, extra);
+        XResourceEventContext context = new XResourceEventContext(existingEntity,
+                metadata.getResourceName(), roles, extra);
         hooksRegistry.executeHooks(resourceName, XResourceEventType.BEFORE_UPDATE, context);
 
         // Save patched entity
@@ -325,7 +326,7 @@ public class XResourceService {
 
         // Fire AFTER_UPDATE hook
         hooksRegistry.executeHooks(resourceName, XResourceEventType.AFTER_UPDATE,
-                new XResourceEventContext(updated, metadata, roles, extra));
+                new XResourceEventContext(updated, metadata.getResourceName(), roles, extra));
 
         return updated;
     }
@@ -338,13 +339,13 @@ public class XResourceService {
         Object entity = repo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(resourceName + " with ID " + id + " not found"));
 
-        XResourceEventContext context = new XResourceEventContext(entity, metadata, roles, extra);
+        XResourceEventContext context = new XResourceEventContext(entity, metadata.getResourceName(), roles, extra);
         hooksRegistry.executeHooks(resourceName, XResourceEventType.BEFORE_DELETE, context);
 
         repo.deleteById(id);
 
         hooksRegistry.executeHooks(resourceName, XResourceEventType.AFTER_DELETE,
-                new XResourceEventContext(entity, metadata, roles, extra));
+                new XResourceEventContext(entity, metadata.getResourceName(), roles, extra));
     }
 
     public void deleteByEntity(String resourceName, Object entity, List<String> roles) {
@@ -352,13 +353,13 @@ public class XResourceService {
         XResourceMetadata metadata = registry.get(resourceName);
         Map<String, Object> extra = Map.of();
 
-        XResourceEventContext context = new XResourceEventContext(entity, metadata, roles, extra);
+        XResourceEventContext context = new XResourceEventContext(entity, metadata.getResourceName(), roles, extra);
         hooksRegistry.executeHooks(resourceName, XResourceEventType.BEFORE_DELETE, context);
 
         repo.delete(entity);
 
         hooksRegistry.executeHooks(resourceName, XResourceEventType.AFTER_DELETE,
-                new XResourceEventContext(entity, metadata, roles, extra));
+                new XResourceEventContext(entity, metadata.getResourceName(), roles, extra));
     }
 
     public List<Object> saveAll(String resourceName, List<Object> entities) {
@@ -521,7 +522,7 @@ public class XResourceService {
         // Dynamically compute default fields
         String requiredFields = metadata.getFields().values().stream()
                 .filter(XFieldMetadata::partOfJSONForm)
-                .filter(field -> xRoleBasedAccessEvaluator.getEffectiveAccess(roles, field) != AccessLevel.NONE)
+                .filter(field -> xRoleBasedAccessEvaluator.getFieldEffectiveAccess(roles, field) != AccessLevel.NONE)
                 .filter(field -> parentClass == null || !isForeignKeyBackReference(field.getField(), parentClass))
                 .filter(field -> {
                     if (parentClass != null && field.getField().isAnnotationPresent(Id.class)) {
@@ -580,8 +581,13 @@ public class XResourceService {
 
                     Field field = meta.getField();
                     if (isInverse(field)) {
-                        fieldData.put("nestedObjectForm", generateNestedJsonForm(
-                                resolveInverseOneToOneOrOneToManyForeignTable(field), null, metadata.getEntityClass()));
+                        String nestedFieldForeignKeyTable = resolveInverseOneToOneOrOneToManyForeignTable(field);
+                        if (nestedFieldForeignKeyTable != null) {
+                            fieldData.put("nestedObjectForm", generateNestedJsonForm(
+                                    resolveInverseOneToOneOrOneToManyForeignTable(field), null,
+                                    metadata.getEntityClass()));
+                        }
+
                     }
 
                     return fieldData;

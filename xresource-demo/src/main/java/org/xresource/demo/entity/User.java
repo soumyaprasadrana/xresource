@@ -2,20 +2,16 @@ package org.xresource.demo.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-
-import org.xresource.core.annotations.AccessLevel;
 import org.xresource.core.annotations.XControlledByAction;
+import org.xresource.core.annotations.XFieldAccess;
 import org.xresource.core.annotations.XFieldAction;
 import org.xresource.core.annotations.XHidden;
 import org.xresource.core.annotations.XJSONFormFieldMetadata;
 import org.xresource.core.annotations.XMetadata;
-import org.xresource.core.annotations.XResourceAuthGroup;
-import org.xresource.core.annotations.XResourceAuthGroups;
 
 @Entity
 @Table(name = "user", schema = "xresourcedemo", indexes = {
@@ -60,6 +56,7 @@ public class User {
             @XFieldAction(name = "updateLastNameToSoumya", value = "soumya"),
             @XFieldAction(name = "updateLastNameToNilesh", value = "Nilesh")
     }, allowInsert = false, allowUpdate = false)
+    @XFieldAccess(denyRoles = { "*" }, readRoles = { "ROLE_USER" }, writeRoles = { "ROLE_ADMIN" })
     private String lastName;
 
     @Column(name = "created_at", updatable = false, insertable = false)

@@ -3,11 +3,11 @@ package org.xresource.demo.validations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-import org.xresource.core.exception.XValidationException;
 import org.xresource.core.validation.ValidationContext;
 import org.xresource.core.validation.XValidator;
 import org.xresource.core.validation.XValidatorRegistry;
 import org.xresource.demo.entity.User;
+import org.xresource.core.exception.XValidationException;
 
 import jakarta.annotation.PostConstruct;
 

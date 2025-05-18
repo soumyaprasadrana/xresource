@@ -4,61 +4,100 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 import org.xresource.core.actions.XFieldControlledByAction;
-import org.xresource.core.actions.XFieldControlledByActionAbsractImpl;
+import org.xresource.internal.actions.XFieldControlledByActionAbsractImpl;
 
 /**
- * Annotation used to define a field-level action that controls how a specific
- * field
- * in an entity is updated dynamically via a named action.
+ * Declares a field-level action that governs how a specific entity field should
+ * be updated through dynamic action execution.
+ *
  * <p>
- * This is typically used in dynamic metadata-driven frameworks where field
- * updates
- * are triggered by declarative actions rather than direct setter calls.
+ * This annotation is used in conjunction with {@link XControlledByAction} on an
+ * entity field to define one of potentially many actions that may apply to the
+ * field.
+ * It enables declarative behavior for status/state transitions or any business
+ * logic
+ * that needs to control a field dynamically.
+ *
+ * <p>
+ * Each {@code @XFieldAction} defines:
+ * <ul>
+ * <li>An {@code action name} used to trigger the action via the API</li>
+ * <li>A {@code value} to assign to the field when the action is executed</li>
+ * <li>An optional {@code message} template to log or return on success</li>
+ * <li>Optional {@code messageArgs} for placeholder substitution</li>
+ * <li>An {@code actionClass} that defines how the action is executed</li>
+ * </ul>
+ *
+ * <p>
+ * By default, the associated action class is
+ * {@link XFieldControlledByActionAbsractImpl},
+ * which simply sets the defined {@link #value()} to the field at runtime using
+ * reflection.
+ * Advanced behavior (like conditional updates, dynamic value resolution, or
+ * async triggers)
+ * can be achieved by specifying a custom implementation of
+ * {@link XFieldControlledByAction}.
+ *
+ * <p>
+ * <b>Example Usage:</b>
+ * 
+ * <pre>
+ * &#64;XControlledByAction(allowInsert = false, allowUpdate = false, actions = {
+ *         &#64;XFieldAction(name = "approve", value = "APPROVED", message = "Status set to {action.value} by {action.name}."),
+ *         &#64;XFieldAction(name = "reject", value = "REJECTED")
+ * })
+ * private String status;
+ * </pre>
+ *
+ * @apiNote This annotation is part of the public API and is intended for
+ *          developers
+ *          using XResource to declaratively define action-driven field updates
+ *          on entities.
+ * @author soumya
+ * @since xresource-core 0.1
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface XFieldAction {
 
     /**
-     * The name of the action that triggers the update of this field.
-     * This should be a unique and identifiable action key used in your system
-     * to invoke the field update behavior.
+     * The unique name of the action. This name is used to route
+     * incoming dynamic action requests to this logic.
      *
-     * @return the name of the controlling action
+     * @return the name/key of the controlling action
      */
     String name();
 
     /**
-     * A message template used to generate success or log messages when the action
-     * is applied.
-     * You may use placeholders like <code>{field}</code> and <code>{value}</code>
-     * to inject dynamic content.
+     * Message template shown/logged upon successful execution of this action.
+     * Supports placeholders like <code>{field}</code> and <code>{value}</code>.
+     * Defaults to: "Field '{field}' was updated to '{value}' successfully."
      *
-     * Default: "Field '{field}' was updated to '{value}' successfully."
-     *
-     * @return the message template string
+     * @return the success message template
      */
     String message() default "Field '{}' was updated to '{}' successfully.";
 
     /**
-     * The value to be set to the annotated field when the action is executed.
-     * This can be a primitive value, enum name, or a JSON string representing an
-     * object (to be parsed at runtime).
+     * The static value to be assigned to the field when this action is invoked.
+     * Can represent primitive types, enum values, or serialized JSON.
      *
-     * @return the value to apply to the field
+     * @return the value to apply
      */
     String value();
 
     /**
-     * Optional arguments that define how to replace placeholders in the
-     * {@link #message()}.
-     * Typically this includes values like <code>action.field</code> and
-     * <code>action.value</code>,
-     * but can be extended as per the framework needs.
+     * Placeholder argument keys to be injected into the message template.
+     * These may be resolved from the context or runtime execution data.
      *
-     * @return array of placeholder argument keys
+     * @return array of dynamic message argument keys
      */
     String[] messageArgs() default { "action.field", "action.value" };
 
+    /**
+     * The implementation class that defines the action execution logic.
+     * By default, {@link XFieldControlledByActionAbsractImpl} is used,
+     * which simply assigns the given {@link #value()} to the annotated field.
+     *
+     * @return the class implementing the field control logic
+     */
     Class<? extends XFieldControlledByAction> actionClass() default XFieldControlledByActionAbsractImpl.class;
-
 }

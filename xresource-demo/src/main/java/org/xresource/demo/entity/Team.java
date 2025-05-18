@@ -4,18 +4,16 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.xresource.core.annotations.AccessLevel;
 import org.xresource.core.annotations.XMetadata;
-import org.xresource.core.annotations.XResourceAuthGroup;
+import org.xresource.core.annotations.XResourceAccess;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties({ "users", "hibernateLazyInitializer", "handler" })
 @Entity
 @Table(name = "team", schema = "xresourcedemo")
 @XMetadata(path = "schemas/team.json")
-@XResourceAuthGroup(role = "ROLE_USER", access = AccessLevel.READ)
+@XResourceAccess(readRoles = { "ROLE_USER" })
 public class Team {
 
     @Id

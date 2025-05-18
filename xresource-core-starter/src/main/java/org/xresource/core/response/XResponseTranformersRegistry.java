@@ -32,7 +32,8 @@ import lombok.Setter;
  * between business logic and response shaping.
  * </p>
  *
- * @author YourName
+ * @author soumya
+ * @since xresource-core 0.1
  */
 public class XResponseTranformersRegistry {
     /**

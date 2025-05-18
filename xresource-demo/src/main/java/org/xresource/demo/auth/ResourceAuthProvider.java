@@ -6,14 +6,14 @@ import java.util.List;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.xresource.core.annotations.AccessLevel;
-import org.xresource.core.auth.XResourceAuthProvider;
 import org.xresource.core.auth.XResourceTypes;
+import org.xresource.core.auth.XRoleBasedAccessFunction;
 import org.xresource.demo.security.CustomUserDetails;
 
 @Component
-public class ResourceAuthProvider implements XResourceAuthProvider {
+public class ResourceAuthProvider implements XRoleBasedAccessFunction {
 
-    String[] restrictedUsers = { "testUser4" };
+    String[] restrictedUsers = { "testUser3" };
 
     @Override
     public AccessLevel getEffectiveAccess(XResourceTypes type, AccessLevel currentEffectiveAlevel, String resourceName,
