@@ -4,7 +4,7 @@
 
   <groupId>io.github.soumyaprasadrana</groupId>
   <artifactId>xresource-starter</artifactId>
-  <version>0.1</version>
+  <version>0.2</version>
   <name>xresource-starter</name>
   <description>Lightweight metadata-driven Spring Boot plugin framework for RESTful resource and patch lifecycle management</description>
   <url>https://github.com/soumyaprasadrana/xresource</url>
@@ -117,6 +117,44 @@
       <artifactId>jakarta.inject-api</artifactId>
       <version>2.0.1</version>
     </dependency>
+
+    <!-- PostgreSQL driver -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.2</version>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- Flyway for DB migrations -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr4-runtime</artifactId>
+      <version>4.13.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.yuvalshavit</groupId>
+      <artifactId>antlr-denter</artifactId>
+      <version>1.1</version>
+    </dependency>
+
   </dependencies>
 
   <distributionManagement>
@@ -129,6 +167,55 @@
       <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
     </repository>
   </distributionManagement>
+
+  <profiles>
+    <profile>
+      <id>dev-install</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <!-- Override Javadoc plugin to skip it -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+
+          <!-- Override Source plugin to skip it -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+
+          <!-- Disable GPG signing -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 
   <build>
     <plugins>
@@ -202,6 +289,73 @@
         <configuration>
           <publishingServerId>central</publishingServerId>
         </configuration>
+      </plugin>
+      <!-- 1. Clean old ANTLR files (exec) -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <!-- Clean up before ANTLR -->
+          <execution>
+            <id>remove-antlr-files</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>./clean_antlr_files.sh</argument>
+                <argument>src/main/java/org/xresource/internal/intent/core/antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <!-- Inject package after ANTLR -->
+          <execution>
+            <id>inject-antlr-package</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>./inject_package.sh</argument>
+                <argument>src/main/java/org/xresource/internal/intent/core/antlr</argument>
+                <argument>org.xresource.internal.intent.core.antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- 2. ANTLR generation -->
+      <plugin>
+        <groupId>org.antlr</groupId>
+        <artifactId>antlr4-maven-plugin</artifactId>
+        <version>4.13.1</version>
+        <executions>
+          <execution>
+            <id>generate-antlr-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>antlr4</goal>
+            </goals>
+            <configuration>
+              <visitor>true</visitor>
+              <listener>false</listener>
+              <sourceDirectory>src/main/java/org/xresource/internal/intent/core/antlr</sourceDirectory>
+              <outputDirectory>src/main/java/org/xresource/internal/intent/core/antlr</outputDirectory>
+              <arguments>
+                <argument>-visitor</argument>
+                <argument>-no-listener</argument>
+                <argument>-package</argument>
+                <argument>org.xresource.internal.intent.core.antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

@@ -7,6 +7,7 @@ import org.xresource.core.annotations.AccessLevel;
 import org.xresource.core.annotations.XAction;
 import org.xresource.core.annotations.XFieldAction;
 import org.xresource.core.annotations.XQuery;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
 import org.xresource.internal.exception.XInvalidConfigurationException;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -32,6 +33,7 @@ public class XResourceMetadata {
     private Map<String, XAction> xActionsMap = new HashMap<String, XAction>();
     private Map<String, Map<String, XFieldAction>> xFieldActions = new HashMap<String, Map<String, XFieldAction>>();
     private Map<String, List<Map<String, String>>> xJSONFormValidatorsMap = new HashMap<String, List<Map<String, String>>>();
+    private Map<String, IntentMeta> xIntents = new HashMap<String, IntentMeta>();
     private boolean hasAutoApplyQuery;
     private boolean hasCompositeKey;
     private Class<?> embeddedIdClassType;
@@ -50,6 +52,10 @@ public class XResourceMetadata {
 
     public XFieldMetadata getField(String fieldName) {
         return this.fields.get(fieldName);
+    }
+
+    public boolean isFieldPresent(String fieldName) {
+        return this.fields.containsKey(fieldName);
     }
 
     public void addEmbeddedIdClassField(String fieldName, XFieldMetadata metadata) {
@@ -81,6 +87,14 @@ public class XResourceMetadata {
 
     public Optional<XAction> getXAction(String name) {
         return Optional.ofNullable(xActionsMap.get(name));
+    }
+
+    public void addXIntent(IntentMeta meta) {
+        this.xIntents.put(meta.getName(), meta);
+    }
+
+    public Optional<IntentMeta> getXIntent(String name) {
+        return Optional.ofNullable(xIntents.get(name));
     }
 
     public void addXFieldAction(String fieldName, String actionName, XFieldAction action) {

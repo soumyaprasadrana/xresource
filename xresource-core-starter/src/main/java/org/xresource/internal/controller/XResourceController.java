@@ -24,6 +24,9 @@ import org.xresource.internal.auth.XAccessManager;
 import org.xresource.internal.auth.XRoleBasedAccessEvaluator;
 import org.xresource.internal.exception.ResourceNotFoundException;
 import org.xresource.internal.exception.XResourceException;
+import org.xresource.internal.intent.core.dsl.IntentDslCompiler;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
+import org.xresource.internal.intent.core.xml.XmlIntentParser;
 import org.xresource.internal.models.ForeignKeyTree;
 import org.xresource.internal.models.XFieldMetadata;
 import org.xresource.internal.models.XResourceMetadata;
@@ -45,15 +48,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.InputSource;
 
 import static org.xresource.internal.config.XResourceConfigProperties.API_BASE_PATH;
 
+import java.io.StringReader;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 /**
  * REST controller responsible for handling dynamic XResource-based CRUD
@@ -325,6 +335,322 @@ public class XResourceController {
     }
 
     /**
+     * Executes a named query defined in the metadata for the specified resource.
+     *
+     * <p>
+     * Supports dynamic filter parameters, pagination, sorting, and foreign key
+     * resolution.
+     * The query is executed in a secure context respecting the user's roles and
+     * field-level visibility.
+     * </p>
+     *
+     * @param resourceName     the name of the resource
+     * @param queryName        the name of the query to execute
+     * @param page             optional page number for pagination
+     * @param size             optional page size for pagination
+     * @param sortBy           optional field to sort by
+     * @param direction        optional sort direction ("asc" or "desc")
+     * @param foreignKeys      optional foreign key traversal instructions
+     * @param queryFiltersJson optional JSON string containing dynamic query filters
+     * @param request          the current HTTP servlet request
+     * @return the result set of the executed query, formatted as a list of JSON
+     *         objects
+     */
+    @GetMapping("/{resourceName}/intents/{intentName}")
+    public ResponseEntity<?> executeXIntent(
+            @PathVariable String resourceName,
+            @PathVariable String intentName,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String foreignKeys,
+            @RequestParam(required = false, name = "xIntentParams") String xQueryParamsJson,
+            HttpServletRequest request) {
+
+        log.info("Executing Intent '%s' on resource: %s", intentName, resourceName);
+
+        List<String> roles = getCurrentUserRoles();
+        XResourceMetadata metadata = registry.get(resourceName);
+        xRoleBasedAccessEvaluator.checkReadAccess(roles, metadata, resourceName);
+        log.trace("Access verified for query '%s', roles: %s", intentName, roles);
+
+        boolean isPaged = page != null || size != null || sortBy != null || direction != null;
+        String baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
+                .replacePath(request.getContextPath())
+                .build()
+                .toUriString();
+
+        ForeignKeyTree fkTree = (foreignKeys != null) ? ForeignKeyParser.parse(foreignKeys) : new ForeignKeyTree();
+        Map<String, String> xQueryParams = parseXQueryParams(xQueryParamsJson);
+        Map<String, Object> userContext = service.getCurrentUserContext();
+        Map<String, Object> context = contextProvider.buildContext(userContext, xQueryParams);
+
+        IntentMeta xIntent = metadata.getXIntent(intentName)
+                .orElseThrow(() -> new RuntimeException("Intent not found: " + intentName));
+
+        if (isPaged) {
+            int pg = page != null ? page : 0;
+            int sz = size != null ? size : 10;
+            String sortField = sortBy != null ? sortBy : null;
+            String dir = direction != null ? direction : "asc";
+
+            log.debug("Running paged query '%s' with page=%s, size=%s, sort=%s, dir=%s", intentName, pg, sz, sortField,
+                    dir);
+
+            Page<?> paged = queryExecutor.executePagedIntent(xIntent, context, pg, sz);
+            /*
+             * List<ObjectNode> results = paged.getContent().stream()
+             * .map(entity -> {
+             * ObjectNode node = fkTree.isEmpty()
+             * ? xAccessManager.filterFieldsByAccess(entity, metadata, roles, baseUrl)
+             * : xAccessManager.filterFieldsByAccess(entity, metadata, roles, fkTree,
+             * baseUrl);
+             * linkResolver.injectPermalink(node, entity, resourceName, metadata, baseUrl);
+             * return node;
+             * }).collect(Collectors.toList());
+             */
+
+            // Handle response transformer
+
+            return ResponseEntity.ok(Map.of(
+                    "data", paged.getContent(),
+                    "page", pg,
+                    "size", sz,
+                    "totalElements", paged.getTotalElements(),
+                    "totalPages", paged.getTotalPages()));
+        } else {
+            log.debug("Running unpaged query  for intent '%s'", intentName);
+            List<?> all = queryExecutor.executeIntent(metadata.getEntityClass(), xIntent, context);
+            /*
+             * List<ObjectNode> results = all.stream()
+             * .map(entity -> {
+             * ObjectNode node = fkTree.isEmpty()
+             * ? xAccessManager.filterFieldsByAccess(entity, metadata, roles, baseUrl)
+             * : xAccessManager.filterFieldsByAccess(entity, metadata, roles, fkTree,
+             * baseUrl);
+             * linkResolver.injectPermalink(node, entity, resourceName, metadata, baseUrl);
+             * return node;
+             * }).collect(Collectors.toList());
+             */
+            // Handle response transformer
+
+            return ResponseEntity.ok(Map.of("data", all));
+        }
+    }
+
+    /**
+     * Executes a named query defined in the metadata for the specified resource.
+     *
+     * <p>
+     * Supports dynamic filter parameters, pagination, sorting, and foreign key
+     * resolution.
+     * The query is executed in a secure context respecting the user's roles and
+     * field-level visibility.
+     * </p>
+     *
+     * @param resourceName     the name of the resource
+     * @param queryName        the name of the query to execute
+     * @param page             optional page number for pagination
+     * @param size             optional page size for pagination
+     * @param sortBy           optional field to sort by
+     * @param direction        optional sort direction ("asc" or "desc")
+     * @param foreignKeys      optional foreign key traversal instructions
+     * @param queryFiltersJson optional JSON string containing dynamic query filters
+     * @param request          the current HTTP servlet request
+     * @return the result set of the executed query, formatted as a list of JSON
+     *         objects
+     */
+    @PostMapping("/{resourceName}/intents")
+    public ResponseEntity<?> executeDynamicXIntent(
+            @PathVariable String resourceName,
+            @RequestBody String reqBody,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String foreignKeys,
+            @RequestParam(required = false, name = "xIntentParams") String xQueryParamsJson,
+            HttpServletRequest request) {
+
+        if (reqBody == null || reqBody.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Request body missing"));
+        }
+
+        List<String> roles = getCurrentUserRoles();
+        XResourceMetadata metadata = registry.get(resourceName);
+        xRoleBasedAccessEvaluator.checkReadAccess(roles, metadata, resourceName);
+        log.trace("Access verified for resource '%s', roles: %s", resourceName, roles);
+
+        boolean isPaged = page != null || size != null || sortBy != null || direction != null;
+        String baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
+                .replacePath(request.getContextPath())
+                .build()
+                .toUriString();
+
+        ForeignKeyTree fkTree = (foreignKeys != null) ? ForeignKeyParser.parse(foreignKeys) : new ForeignKeyTree();
+        Map<String, String> xQueryParams = parseXQueryParams(xQueryParamsJson);
+        Map<String, Object> userContext = service.getCurrentUserContext();
+        Map<String, Object> context = contextProvider.buildContext(userContext, xQueryParams);
+
+        try {
+            IntentDslCompiler compiler = new IntentDslCompiler();
+            Element xml;
+            try {
+                xml = compiler.compile(reqBody);
+                log.debug("Intent compiled XML=" + XmlIntentParser.printXmlElement(xml));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "unable to compile the requested intent, please make sure you are following proper syntax.",
+                        "exception", e.getMessage()));
+            }
+            IntentMeta imeta;
+            try {
+                imeta = XmlIntentParser.compile(xml, resourceName, metadata);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "unable to compile the requested intent, please make sure you are following proper syntax.",
+                        "exception", e.getMessage()));
+
+            }
+            if (isPaged) {
+                int pg = page != null ? page : 0;
+                int sz = size != null ? size : 10;
+                String sortField = sortBy != null ? sortBy : null;
+                String dir = direction != null ? direction : "asc";
+
+                log.debug("Running paged query with page=%s, size=%s, sort=%s, dir=%s", pg, sz, sortField,
+                        dir);
+
+                Page<?> paged = queryExecutor.executePagedIntent(imeta, context, pg, sz);
+                /*
+                 * List<ObjectNode> results = paged.getContent().stream()
+                 * .map(entity -> {
+                 * ObjectNode node = fkTree.isEmpty()
+                 * ? xAccessManager.filterFieldsByAccess(entity, metadata, roles, baseUrl)
+                 * : xAccessManager.filterFieldsByAccess(entity, metadata, roles, fkTree,
+                 * baseUrl);
+                 * linkResolver.injectPermalink(node, entity, resourceName, metadata, baseUrl);
+                 * return node;
+                 * }).collect(Collectors.toList());
+                 */
+
+                // Handle response transformer
+
+                return ResponseEntity.ok(Map.of(
+                        "data", paged.getContent(),
+                        "page", pg,
+                        "size", sz,
+                        "totalElements", paged.getTotalElements(),
+                        "totalPages", paged.getTotalPages()));
+            } else {
+                log.debug("Running unpaged query  for intent");
+                List<?> all = queryExecutor.executeIntent(metadata.getEntityClass(), imeta, context);
+                /*
+                 * List<ObjectNode> results = all.stream()
+                 * .map(entity -> {
+                 * ObjectNode node = fkTree.isEmpty()
+                 * ? xAccessManager.filterFieldsByAccess(entity, metadata, roles, baseUrl)
+                 * : xAccessManager.filterFieldsByAccess(entity, metadata, roles, fkTree,
+                 * baseUrl);
+                 * linkResolver.injectPermalink(node, entity, resourceName, metadata, baseUrl);
+                 * return node;
+                 * }).collect(Collectors.toList());
+                 */
+                // Handle response transformer
+
+                return ResponseEntity.ok(Map.of("data", all));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "unable to process the requested intent, please make sure you are following proper syntax.",
+                    "exception", e.getMessage()));
+        }
+
+    }
+
+    @PostMapping("/{resourceName}/intents/xml")
+    public ResponseEntity<?> executeDynamicXmlIntent(
+            @PathVariable String resourceName,
+            @RequestBody String xmlBody,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String foreignKeys,
+            @RequestParam(required = false, name = "xIntentParams") String xQueryParamsJson,
+            HttpServletRequest request) {
+
+        if (xmlBody == null || xmlBody.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Request body (XML) is missing"));
+        }
+
+        List<String> roles = getCurrentUserRoles();
+        XResourceMetadata metadata = registry.get(resourceName);
+        xRoleBasedAccessEvaluator.checkReadAccess(roles, metadata, resourceName);
+        log.trace("Access verified for resource '%s', roles: %s", resourceName, roles);
+
+        boolean isPaged = page != null || size != null || sortBy != null || direction != null;
+        String baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
+                .replacePath(request.getContextPath())
+                .build()
+                .toUriString();
+
+        ForeignKeyTree fkTree = (foreignKeys != null) ? ForeignKeyParser.parse(foreignKeys) : new ForeignKeyTree();
+        Map<String, String> xQueryParams = parseXQueryParams(xQueryParamsJson);
+        Map<String, Object> userContext = service.getCurrentUserContext();
+        Map<String, Object> context = contextProvider.buildContext(userContext, xQueryParams);
+
+        try {
+            // Parse raw XML string to org.w3c.dom.Element
+            Element xmlElement;
+            try {
+                DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+                factory.setNamespaceAware(true);
+                DocumentBuilder builder = factory.newDocumentBuilder();
+                Document doc = builder.parse(new InputSource(new StringReader(xmlBody)));
+                xmlElement = doc.getDocumentElement();
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Failed to parse XML body",
+                        "exception", e.getMessage()));
+            }
+
+            // Generate IntentMeta from XML
+            IntentMeta imeta;
+            try {
+                imeta = XmlIntentParser.compile(xmlElement, resourceName, metadata);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "Unable to compile the XML intent. Check XML structure and schema.",
+                        "exception", e.getMessage()));
+            }
+
+            // Paged vs Unpaged Execution (same as before)
+            if (isPaged) {
+                int pg = page != null ? page : 0;
+                int sz = size != null ? size : 10;
+                Page<?> paged = queryExecutor.executePagedIntent(imeta, context, pg, sz);
+                return ResponseEntity.ok(Map.of(
+                        "data", paged.getContent(),
+                        "page", pg,
+                        "size", sz,
+                        "totalElements", paged.getTotalElements(),
+                        "totalPages", paged.getTotalPages()));
+            } else {
+                List<?> all = queryExecutor.executeIntent(metadata.getEntityClass(), imeta, context);
+                return ResponseEntity.ok(Map.of("data", all));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "Unable to process the requested XML intent.",
+                    "exception", e.getMessage()));
+        }
+    }
+
+    /**
      * Generates a dynamic JSON form schema for a specified resource based on its
      * metadata configuration.
      *
@@ -548,6 +874,8 @@ public class XResourceController {
                 Table tableAnnotation = elementClass.getAnnotation(Table.class);
                 if (tableAnnotation != null) {
                     fieldResourceName = tableAnnotation.name();
+                } else {
+                    fieldResourceName = elementClass.getSimpleName();
                 }
             }
         }

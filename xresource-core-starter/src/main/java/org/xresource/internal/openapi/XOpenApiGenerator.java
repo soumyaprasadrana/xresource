@@ -8,6 +8,7 @@ import org.xresource.core.annotations.XQuery;
 import org.xresource.core.logging.XLogger;
 import org.xresource.core.service.XResourceService;
 import org.xresource.internal.auth.XRoleBasedAccessEvaluator;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
 import org.xresource.internal.models.XFieldMetadata;
 import org.xresource.internal.models.XResourceMetadata;
 import org.xresource.internal.registry.XResourceMetadataRegistry;
@@ -168,6 +169,25 @@ public class XOpenApiGenerator {
                     "Run named query: " + queryName, queryParams));
         }
 
+        // --- Inetnts (GET only)
+        for (Map.Entry<String, IntentMeta> qEntry : metadata.getXIntents().entrySet()) {
+            String queryName = qEntry.getKey();
+            IntentMeta query = qEntry.getValue();
+
+            List<Map<String, Object>> queryParams = new ArrayList<>();
+            // Standard filters
+            queryParams.add(queryParam("page", "integer", "Page number (0-based index)"));
+            queryParams.add(queryParam("size", "integer", "Number of records per page"));
+            queryParams.add(queryParam("sortBy", "string", "Field name to sort by"));
+            queryParams.add(queryParam("direction", "string", "Sort direction: 'asc' or 'desc'"));
+            queryParams.add(queryParam("foreignKeys", "string", "Comma-separated foreign key fields to expand"));
+            queryParams.add(queryParam("xQueryParams", "string",
+                    "JSON string containing query parameters. Example: { \"email\": \"user@example.com\" }"));
+
+            openApiEndpoints.add(buildEndpoint(baseApiPath, "GET", "/{resourceName}/intents/" + queryName,
+                    "Execute Intent: " + queryName, queryParams));
+        }
+
         // --- Actions (GET, POST, PUT, DELETE)
         for (Map.Entry<String, XAction> aEntry : metadata.getXActionsMap().entrySet()) {
             String actionName = aEntry.getKey();
@@ -201,6 +221,17 @@ public class XOpenApiGenerator {
         openApiEndpoints.add(
                 buildEndpointWithRequestBody(baseApiPath, "POST", "/{resourceName}", "Create new record", List.of(),
                         resourceName));
+
+        openApiEndpoints.add(
+                buildEndpointWithRequestBody(baseApiPath, "POST", "/{resourceName}/intents",
+                        "Execute dynamic intent on a resource", List.of(),
+                        resourceName));
+
+        openApiEndpoints.add(
+                buildEndpointWithRequestBody(baseApiPath, "POST", "/{resourceName}/intents/xml",
+                        "Execute dynamic XML intent on a resource", List.of(),
+                        resourceName));
+
         openApiEndpoints.add(buildEndpoint(baseApiPath, "PUT", "/{resourceName}/{id}", "Update record", List.of(
                 pathParam("id", "string"),
                 queryParam("foreignKeys", "string",
@@ -249,10 +280,27 @@ public class XOpenApiGenerator {
         map.put("summary", summary);
         map.put("parameters", params);
 
-        if (resourceName != null) {
+        if (resourceName != null && !path.contains("intents")) {
 
             List<Map<String, Object>> formFields = xResourceService.generateJsonForm(resourceName, null);
             map.put("requestBody", buildOpenApiRequestBody(formFields));
+        } else if (resourceName != null && path.contains("intents")) {
+            Map<String, Object> requestBody = new HashMap<>();
+
+            Map<String, Object> content = new HashMap<>();
+            Map<String, Object> mediaType = new HashMap<>();
+            Map<String, Object> schema = new HashMap<>();
+
+            schema.put("type", "string");
+
+            mediaType.put("schema", schema);
+            content.put("text/plain", mediaType);
+
+            requestBody.put("required", true);
+            requestBody.put("content", content);
+
+            // Then put it in your endpoint map
+            map.put("requestBody", requestBody);
         }
 
         return map;

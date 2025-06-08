@@ -5,9 +5,14 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import org.xresource.core.aco.ACOEngine;
 import org.xresource.core.annotations.XResource;
 import org.xresource.core.auth.XAccessEvaluatorDelegate;
 import org.xresource.core.hook.XResourceHookRegistry;
+import org.xresource.internal.intent.core.parser.IntentToJPQLTransformer;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
+import org.xresource.internal.intent.core.util.IntentsFileReader;
+import org.xresource.internal.intent.core.util.JPQLExecutorUtility;
 import org.xresource.core.logging.XLogger;
 import org.xresource.internal.query.XQueryContextProvider;
 import org.xresource.internal.query.XQueryExecutor;
@@ -18,8 +23,13 @@ import org.xresource.internal.auth.XAccessManager;
 import org.xresource.internal.auth.XRoleBasedAccessEvaluator;
 import org.xresource.internal.cron.XJobRegistry;
 import org.xresource.internal.cron.XJobRunner;
+import org.xresource.internal.exception.XInvalidConfigurationException;
+import org.xresource.internal.models.XFieldMetadata;
+import org.xresource.internal.models.XRelationshipMetadata;
+import org.xresource.internal.models.XResourceMetadata;
 import org.xresource.internal.registry.XResourceMetadataRegistry;
 import org.xresource.internal.scanner.XMetadataScanner;
+import org.xresource.internal.util.XResourceGraphBuilder;
 import org.xresource.internal.util.XResourceLinkResolver;
 import org.xresource.internal.util.XResourceRepositoryScanner;
 
@@ -46,9 +56,14 @@ import com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import static org.xresource.internal.config.XResourceConfigProperties.BASE_PACKGE;
+import static org.xresource.internal.config.XResourceConfigProperties.ACO_ENABLED;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Configuration
@@ -96,6 +111,13 @@ public class XResourceAutoConfig {
     @ConditionalOnMissingBean(XAccessManager.class)
     public XAccessManager xAccessManager(ObjectMapper objectMapper) {
         return new XAccessManager(objectMapper);
+    }
+
+    @Bean
+    @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+    @ConditionalOnMissingBean(IntentsFileReader.class)
+    public IntentsFileReader intentsFileReader() {
+        return new IntentsFileReader();
     }
 
     @Bean
@@ -177,9 +199,10 @@ public class XResourceAutoConfig {
             XMetadataScanner metadataScanner,
             XResourceMetadataRegistry registry,
             ApplicationContext applicationContext,
-            XResourceRepositoryScanner xResourceEntityScanner) {
+            XResourceRepositoryScanner xResourceEntityScanner,
+            @Value(ACO_ENABLED) boolean acoEnabled, IntentsFileReader intentsFileReader) {
         return new XResourceRegistrar(entityManagerFactory, metadataScanner, registry, applicationContext, basePackage,
-                xResourceEntityScanner);
+                xResourceEntityScanner, acoEnabled, intentsFileReader);
     }
 
     @Bean
@@ -214,19 +237,28 @@ public class XResourceAutoConfig {
 
         private static final XLogger log = XLogger.forClass(XResourceRegistrar.class);
 
+        private final EntityManagerFactory entityManagerFactory;
         private final XMetadataScanner metadataScanner;
         private final String basePackage;
         private final XResourceRepositoryScanner xResourceEntityScanner;
+        private final XResourceMetadataRegistry registry;
+        private final boolean acoEnabled;
+        private final IntentsFileReader intentsFileReader;
 
         public XResourceRegistrar(EntityManagerFactory entityManagerFactory,
                 XMetadataScanner metadataScanner,
                 XResourceMetadataRegistry registry,
                 ApplicationContext applicationContext,
                 String basePackage,
-                XResourceRepositoryScanner xResourceEntityScanner) {
+                XResourceRepositoryScanner xResourceEntityScanner, boolean acoEnabled,
+                IntentsFileReader intentsFileReader) {
+            this.entityManagerFactory = entityManagerFactory;
             this.metadataScanner = metadataScanner;
             this.basePackage = basePackage;
             this.xResourceEntityScanner = xResourceEntityScanner;
+            this.registry = registry;
+            this.acoEnabled = acoEnabled;
+            this.intentsFileReader = intentsFileReader;
             log.debug("XResourceRegistrar initialized with base package: %s", basePackage);
         }
 
@@ -239,7 +271,7 @@ public class XResourceAutoConfig {
             log.debug("Found %s repositories with @Repository annotation", resourceRepositories.size());
 
             for (Class<?> repositoryClass : resourceRepositories) {
-                log.trace("Processing repository:", repositoryClass.getName());
+                log.trace("Processing repository:%s", repositoryClass.getName());
 
                 XResource xResource = repositoryClass.getAnnotation(XResource.class);
                 if (xResource == null && !xResourceEntityScanner.isAutoScanEnabled()) {
@@ -264,7 +296,52 @@ public class XResourceAutoConfig {
             }
 
             log.success("Completed scanning and registration of XResource repositories.");
+            if (acoEnabled)
+                ACOEngine.getInstance(registry).intialize();
+            log.info("Building Resource Relationship Graph");
+            Map<String, Map<String, XRelationshipMetadata>> graph = XResourceGraphBuilder.getGraph(registry);
+
+            /*
+             * ---------- LOAD IQL FILES -----------
+             */
+            try {
+                intentsFileReader.loadFiles(registry);
+            } catch (Exception e) {
+                if (e instanceof XInvalidConfigurationException) {
+                    e.printStackTrace();
+                    throw e;
+                } else {
+                    // ignore
+                    e.printStackTrace();
+                }
+            }
+
+            /*
+             * Test code for intent execution ----- // TO BE REMOVE
+             * 
+             * try {
+             * XResourceMetadata assetMeta = registry.getRegistry().get("Asset");
+             * Map<String, IntentMeta> xIntents = assetMeta.getXIntents();
+             * if (xIntents.size() > 0) {
+             * String jpql =
+             * IntentToJPQLTransformer.toJPQL(xIntents.get("assetComplexQuery1"), graph);
+             * System.out.println("=====>DEBUGGGGGGGGG====> "
+             * + jpql);
+             * JPQLExecutorUtility jpqlExecutorUtility = new JPQLExecutorUtility(
+             * this.entityManagerFactory.createEntityManager());
+             * List<Object[]> result = jpqlExecutorUtility.executeQuery(jpql,
+             * Map.of("regionName", "Region 5"));
+             * System.out.println(result.toString());
+             * }
+             * } catch (Exception e) {
+             * e.printStackTrace();
+             * }
+             */
+            /**
+             * Test code end ---------------------------------//
+             */
             log.exit("init");
+
         }
 
         /**
@@ -279,20 +356,20 @@ public class XResourceAutoConfig {
          * @return the table name associated with the entity class
          */
         private String extractTableNameFromEntityClass(Class<?> clazz) {
-            log.trace("Extracting table name from entity class: ", clazz.getName());
+            log.trace("Extracting table name from entity class: %s", clazz.getName());
 
             // Check if the class is annotated with @Table
             if (clazz.isAnnotationPresent(Table.class)) {
                 Table tableAnnotation = clazz.getAnnotation(Table.class);
                 String tableName = tableAnnotation.name();
-                log.trace("Found @Table annotation. Table name: ", tableName);
+                log.trace("Found @Table annotation. Table name: %s", tableName);
                 return tableName;
             }
 
             // If the @Table annotation is not present, return the class name as the table
             // name
             String defaultTableName = clazz.getSimpleName();
-            log.trace("No @Table annotation found. Using class name as table name:", defaultTableName);
+            log.trace("No @Table annotation found. Using class name as table name: %s", defaultTableName);
             return defaultTableName;
         }
 

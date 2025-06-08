@@ -2,6 +2,9 @@ package org.xresource.internal.scanner;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.xresource.core.annotations.*;
+import org.xresource.internal.intent.core.parser.IntentParser;
+import org.xresource.internal.intent.core.parser.IntentToJPQLTransformer;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
 import org.xresource.core.logging.XLogger;
 import org.xresource.core.validation.XValidator;
 import org.xresource.core.validation.XValidatorRegistry;
@@ -130,6 +133,10 @@ public class XMetadataScanner {
         for (Field field : getAllFields(entityClass)) {
             processField(field, entityClass, metadata, externalFieldSchema, false);
         }
+
+        // Process Intents
+        Map<String, IntentMeta> xIntents = IntentParser.parseIntentMetadataMap(repository, metadata);
+        metadata.setXIntents(xIntents);
 
         log.info("Metadata scan complete for table: %s with %s fields.", tableName, metadata.getFields().size());
         if (repository.isAnnotationPresent(XResourceIgnore.class)) {
@@ -606,26 +613,42 @@ public class XMetadataScanner {
         boolean isManyToOne = field.isAnnotationPresent(ManyToOne.class);
         boolean isOneToOne = field.isAnnotationPresent(OneToOne.class);
         boolean hasJoinColumn = field.isAnnotationPresent(JoinColumn.class);
+        boolean hasJoinColumns = field.isAnnotationPresent(JoinColumns.class);
 
-        if (!hasJoinColumn || (!isManyToOne && !isOneToOne)) {
+        if ((!hasJoinColumn && !hasJoinColumns) || (!isManyToOne && !isOneToOne)) {
             return false;
         }
 
-        JoinColumn joinColumn = field.getAnnotation(JoinColumn.class);
-        String columnName = joinColumn.name();
         Class<?> targetEntityClass = field.getType();
-
-        Field idField = findIdField(targetEntityClass);
-        if (idField == null) {
-            throw new IllegalStateException(
-                    "No primary key field found in foreign key entity: " + targetEntityClass.getName());
-        }
-
         metadata.setForeignKey(true);
-        metadata.setForeignKeyColumn(columnName.isEmpty() ? field.getName() + "_id" : columnName);
         metadata.setForeignKeyRefTable(getTableName(targetEntityClass));
-        metadata.setForeignKeyRefField(idField.getName());
-        metadata.setForeignKeyRefColumn(resolveColumnName(idField));
+
+        if (hasJoinColumns) {
+            JoinColumns joinColumns = field.getAnnotation(JoinColumns.class);
+            Map<String, String> joinMap = new LinkedHashMap<>();
+            for (JoinColumn jc : joinColumns.value()) {
+                String localCol = jc.name().isEmpty() ? field.getName() + "_" + jc.referencedColumnName() : jc.name();
+                String refCol = jc.referencedColumnName();
+                joinMap.put(localCol, refCol);
+            }
+            metadata.setCompositeForeignKey(true);
+            metadata.setCompositeForeignKeyMap(joinMap);
+        } else {
+            JoinColumn joinColumn = field.getAnnotation(JoinColumn.class);
+            String localCol = joinColumn.name().isEmpty() ? field.getName() + "_id" : joinColumn.name();
+
+            Field idField = findIdField(targetEntityClass);
+            if (idField == null) {
+                throw new IllegalStateException(
+                        "No primary key field found in foreign key entity: " + targetEntityClass.getName());
+            }
+
+            metadata.setForeignKeyColumn(localCol);
+            metadata.setForeignKeyRefField(idField.getName());
+            metadata.setForeignKeyRefColumn(resolveColumnName(idField));
+            metadata.setCompositeForeignKey(false);
+            metadata.setCompositeForeignKeyMap(null);
+        }
 
         return true;
     }

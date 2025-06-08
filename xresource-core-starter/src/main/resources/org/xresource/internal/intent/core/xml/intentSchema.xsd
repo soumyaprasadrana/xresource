@@ -1,0 +1,79 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+
+    <xs:element name="Intent">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="SelectAttribute" type="SelectAttributeType" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="parameters" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="IntentParameter" type="IntentParameterType" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="sortBy" minOccurs="0" maxOccurs="unbounded" type="ValueListType"/>
+                <xs:element name="groupBy" minOccurs="0" maxOccurs="unbounded" type="ValueListType"/>
+                <xs:element name="ResourceDrill" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element ref="XResource" minOccurs="0" maxOccurs="unbounded"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="resource" type="xs:string" use="required"/>
+            <xs:attribute name="description" type="xs:string" use="optional"/>
+            <xs:attribute name="rootAlias" type="xs:string" use="optional"/>
+            <xs:attribute name="where" type="xs:string" use="optional"/>
+            <xs:attribute name="paginated" type="xs:string" use="optional"/>
+            <xs:attribute name="limit" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- XResource element representing a join -->
+    <xs:element name="XResource">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="SelectAttribute" type="SelectAttributeType" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="JoinFilter" type="JoinFilterType" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element ref="XResource" minOccurs="0" maxOccurs="unbounded"/>
+                <!-- recursive -->
+            </xs:sequence>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+            <xs:attribute name="alias" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- SelectAttribute -->
+    <xs:complexType name="SelectAttributeType">
+        <xs:attribute name="field" type="xs:string" use="required"/>
+        <xs:attribute name="alias" type="xs:string" use="optional"/>
+        <xs:attribute name="aliasAs" type="xs:string" use="optional"/>
+
+    </xs:complexType>
+
+    <!-- JoinFilter -->
+    <xs:complexType name="JoinFilterType">
+        <xs:attribute name="field" type="xs:string" use="required"/>
+        <xs:attribute name="binding" type="xs:string" use="required"/>
+        <xs:attribute name="param" type="xs:string" use="required"/>
+    </xs:complexType>
+
+    <!-- IntentParameter -->
+    <xs:complexType name="IntentParameterType">
+        <xs:attribute name="name" type="xs:string" use="required"/>
+        <xs:attribute name="type" type="xs:string" use="required"/>
+        <xs:attribute name="source" type="xs:string" use="required"/>
+        <xs:attribute name="defaultValue" type="xs:string" use="optional"/>
+        <xs:attribute name="binding" type="xs:string" use="optional"/>
+    </xs:complexType>
+
+    <!-- sortBy and groupBy value list -->
+    <xs:complexType name="ValueListType">
+        <xs:sequence>
+            <xs:element name="value" type="xs:string" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+</xs:schema>

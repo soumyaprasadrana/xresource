@@ -10,6 +10,7 @@ import org.xresource.core.annotations.XResourceIgnore;
 import lombok.RequiredArgsConstructor;
 
 import static org.xresource.internal.config.XResourceConfigProperties.AUTO_SCAN_ENABLED;
+import static org.xresource.internal.config.XResourceConfigProperties.ACO_ENABLED;
 
 import java.io.IOException;
 import java.net.JarURLConnection;
@@ -25,6 +26,9 @@ public class XResourceRepositoryScanner {
 
     @Value(AUTO_SCAN_ENABLED)
     private boolean autoScanEnabled;
+
+    @Value(ACO_ENABLED)
+    private boolean acoEnabled;
 
     public Set<Class<?>> scanRepositoriesWithXResource(String basePackage) {
         Set<Class<?>> result = new HashSet<>();

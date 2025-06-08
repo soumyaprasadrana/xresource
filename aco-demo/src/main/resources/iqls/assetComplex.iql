@@ -1,0 +1,24 @@
+Create Intent for resource Asset as assetComplexQuery1
+                    Description "Get asset details with project, manager, city, region filters"
+                    Where "tag='TAG-2' AND City.name='City 4'"
+                    Select assetId, tag, description
+                    Include AssetUsage
+                        Include Project
+                            Select title as ProjectTitle
+                            Include ProjectMember
+                                Include Person
+                                    Select name as managerName
+                                    Include Address
+                                        Include City
+                                            Select name as cityName
+                                            Include Region
+                                                Add filter for name having exact value from parameter regionName
+                                                Select name as regionName
+                    Include AssetMaintenance
+                        Select date as lastMaintenance
+                        Include ProjectMember
+                            Include Person
+                                Select name as maintenanceOwner
+                    Parameters
+                        Param regionName with datatype String having default value "Region 5" from source static
+                    Sort by assetId
