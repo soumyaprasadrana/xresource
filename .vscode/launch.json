@@ -6,6 +6,34 @@
     "configurations": [
         {
             "type": "java",
+            "name": "XmlIntentParser",
+            "request": "launch",
+            "mainClass": "org.xresource/org.xresource.internal.intent.core.xml.XmlIntentParser",
+            "projectName": "xresource-starter"
+        },
+        {
+            "type": "java",
+            "name": "XmlIntentParser",
+            "request": "launch",
+            "mainClass": "org.xresource/org.xresource.core.intent.core.xml.XmlIntentParser",
+            "projectName": "xresource-starter"
+        },
+        {
+            "type": "java",
+            "name": "IntentDslCompiler",
+            "request": "launch",
+            "mainClass": "org.xresource/org.xresource.core.intent.core.dsl.IntentDslCompiler",
+            "projectName": "xresource-starter"
+        },
+        {
+            "type": "java",
+            "name": "AcoDemoApplication",
+            "request": "launch",
+            "mainClass": "org.xresource.acodemo.AcoDemoApplication",
+            "projectName": "aco-demo"
+        },
+        {
+            "type": "java",
             "name": "XRsourceDemoApplication",
             "request": "launch",
             "mainClass": "org.xresource.demo/org.xresource.demo.XRsourceDemoApplication",

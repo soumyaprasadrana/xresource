@@ -1,20 +1,34 @@
 package org.xresource.internal.query;
 
 import org.xresource.core.annotations.XQuery;
+import org.xresource.core.intent.core.annotations.Intent;
+import org.xresource.core.intent.core.annotations.IntentParameter;
+import org.xresource.internal.intent.core.parser.IntentToJPQLTransformer;
+import org.xresource.internal.intent.core.parser.model.IntentMeta;
+import org.xresource.internal.intent.core.parser.model.IntentParameterMeta;
+import org.xresource.internal.intent.core.parser.model.SelectAttributeMeta;
+import org.xresource.internal.intent.core.xml.XmlIntentParser;
 import org.xresource.internal.models.XResourceMetadata;
+import org.xresource.internal.registry.XResourceMetadataRegistry;
+import org.xresource.internal.util.XResourceGraphBuilder;
 
 import jakarta.persistence.*;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 public class XQueryExecutor {
 
     @PersistenceUnit
     private EntityManagerFactory emf;
+
+    @Autowired
+    private XResourceMetadataRegistry registry;
 
     private EntityManager getEntityManager() {
         if (!emf.isOpen()) {
@@ -89,6 +103,102 @@ public class XQueryExecutor {
 
         long total = countQuery.getSingleResult();
         return new PageImpl<>(jpaQuery.getResultList(), PageRequest.of(page, size), total);
+    }
+
+    public List<Map<String, Object>> executeIntent(
+            Class<?> entityClass,
+            IntentMeta intent,
+            Map<String, Object> context) {
+
+        if (intent == null)
+            throw new RuntimeException("No XIntent provided for entity: " + entityClass.getSimpleName());
+
+        EntityManager entityManager = getEntityManager();
+        String jpql = IntentToJPQLTransformer.toJPQL(intent, XResourceGraphBuilder.getGraph(registry));
+
+        // Use Object[] because there are multiple fields
+        TypedQuery<Object[]> jpaQuery = entityManager.createQuery(jpql, Object[].class);
+
+        for (IntentParameterMeta intentPara : intent.getParameters()) {
+            String paramName = intentPara.getName();
+            Object resolvedValue = intentPara.getDefaultValue();
+            jpaQuery.setParameter(paramName, resolvedValue);
+        }
+
+        List<Object[]> results = jpaQuery.getResultList();
+
+        // Extract the aliases from the intent metadata
+        List<String> aliases = intent.getSelectAttributes().stream()
+                .map(attr -> attr.getAliasAs() != null ? attr.getAliasAs().isBlank() ? attr.getField()
+                        : attr
+                                .getAliasAs()
+                        : attr.getField())
+                .collect(Collectors.toList());
+
+        // Build result list of maps
+        List<Map<String, Object>> mappedResults = new ArrayList<>();
+
+        for (Object[] row : results) {
+            Map<String, Object> resultRow = new LinkedHashMap<>();
+            for (int i = 0; i < aliases.size(); i++) {
+                resultRow.put(aliases.get(i), row[i]); // Use actual alias like ProjectTitle
+            }
+            mappedResults.add(resultRow);
+        }
+
+        return mappedResults;
+    }
+
+    public Page<Map<String, Object>> executePagedIntent(
+            IntentMeta intent,
+            Map<String, Object> context,
+            int page,
+            int size) {
+
+        if (intent == null)
+            throw new RuntimeException("No XIntent provided");
+
+        EntityManager entityManager = getEntityManager();
+
+        // Generate JPQL for data
+        String jpql = IntentToJPQLTransformer.toJPQL(intent, XResourceGraphBuilder.getGraph(registry));
+
+        // Execute as raw Object[]
+        TypedQuery<Object[]> jpaQuery = entityManager.createQuery(jpql, Object[].class);
+        for (IntentParameterMeta param : intent.getParameters()) {
+            jpaQuery.setParameter(param.getName(), param.getDefaultValue());
+        }
+
+        jpaQuery.setFirstResult(page * size);
+        jpaQuery.setMaxResults(size);
+
+        List<Object[]> rawResults = jpaQuery.getResultList();
+
+        // Map to field aliases
+        List<String> aliases = intent.getSelectAttributes().stream()
+                .map(attr -> attr.getAliasAs() != null
+                        ? attr.getAliasAs().isBlank() ? attr.getField() : attr.getAliasAs()
+                        : attr.getField())
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> resultRows = rawResults.stream().map(row -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            for (int i = 0; i < aliases.size(); i++) {
+                map.put(aliases.get(i), i < row.length ? row[i] : null);
+            }
+            return map;
+        }).collect(Collectors.toList());
+
+        // Count query
+        String countJpql = IntentToJPQLTransformer.toJPQLCountQuery(intent, XResourceGraphBuilder.getGraph(registry));
+        TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
+        for (IntentParameterMeta param : intent.getParameters()) {
+            countQuery.setParameter(param.getName(), param.getDefaultValue());
+        }
+
+        long total = countQuery.getSingleResult();
+
+        return new PageImpl<>(resultRows, PageRequest.of(page, size), total);
     }
 
     public <T> Page<T> executePagedQueries(

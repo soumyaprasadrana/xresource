@@ -9,4 +9,9 @@ public class XResourceConfigProperties {
     public static final String ENABLE_ACTION_LINKS = "${xresource.api.actions.href.enabled:true}";
     public static final String AUTO_SCAN_ENABLED = "${xresource.metadata.autoScanEnabled:true}";
     public static final String API_RESPONSE_ERROR_CONTEXT = "${xresource.api.response.error.context:false}";
+
+    public static final String ACO_ENABLED = "${xresource.aco.enabled:false}";
+    public static final String ACO_DATASOURCE_ENABLED = "${xresource.aco.datasource.enabled:false}";
+
+    public static final String INTENTS_FILE_PATH = "${xresource.intents.file.path:}";
 }

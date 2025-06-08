@@ -2,9 +2,13 @@ package org.xresource.core.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -98,6 +102,13 @@ public class XLogger {
 
     private XLogger(Class<?> clazz) {
         this.delegate = LoggerFactory.getLogger(clazz);
+
+        LoggerContext ctx = (LoggerContext) LoggerFactory.getILoggerFactory();
+        ch.qos.logback.classic.Logger logger = ctx.getLogger(clazz);
+        Level level = Level.valueOf(configuredLevel.toString());
+
+        logger.setLevel(level);
+
         this.tag = clazz.getSimpleName();
     }
 
@@ -156,7 +167,7 @@ public class XLogger {
         log("🔍", PURPLE, "TRACE", message, LogLevel.TRACE, args);
     }
 
-    public void trace(String context, Object object) {
+    public void traceObject(String context, Object object) {
         if (!configuredLevel.includes(LogLevel.TRACE))
             return;
         try {

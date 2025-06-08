@@ -1,37 +1,36 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-   <groupId>io.github.soumyaprasadrana</groupId>
-    <artifactId>xresource-starter</artifactId>
-    <version>0.1</version>
-    <name>xresource-starter</name>
-    <description>Lightweight metadata-driven Spring Boot plugin framework for RESTful resource and patch lifecycle management</description>
+  <groupId>io.github.soumyaprasadrana</groupId>
+  <artifactId>xresource-starter</artifactId>
+  <version>0.2</version>
+  <name>xresource-starter</name>
+  <description>Lightweight metadata-driven Spring Boot plugin framework for RESTful resource and patch lifecycle management</description>
+  <url>https://github.com/soumyaprasadrana/xresource</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>soumyaprasadrana</id>
+      <name>Soumya Prasad Rana</name>
+      <url>https://github.com/soumyaprasadrana</url>
+    </developer>
+  </developers>
+
+  <scm>
     <url>https://github.com/soumyaprasadrana/xresource</url>
-
-    <licenses>
-        <license>
-            <name>Apache License, Version 2.0</name>
-            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-
-    <developers>
-        <developer>
-            <id>soumyaprasadrana</id>
-            <name>Soumya Prasad Rana</name>
-            <url>https://github.com/soumyaprasadrana</url>
-        </developer>
-    </developers>
-
-    <scm>
-        <url>https://github.com/soumyaprasadrana/xresource</url>
-        <connection>scm:git:https://github.com/soumyaprasadrana/xresource.git</connection>
-        <developerConnection>scm:git:git@github.com:soumyaprasadrana/xresource.git</developerConnection>
-        <tag>HEAD</tag>
-    </scm>
+    <connection>scm:git:https://github.com/soumyaprasadrana/xresource.git</connection>
+    <developerConnection>scm:git:git@github.com:soumyaprasadrana/xresource.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
 
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -99,11 +98,11 @@
     </dependency>
 
     <dependency>
-    <groupId>jakarta.enterprise</groupId>
-    <artifactId>jakarta.enterprise.cdi-api</artifactId>
-    <version>4.0.1</version>
-    <scope>provided</scope>
-</dependency>
+      <groupId>jakarta.enterprise</groupId>
+      <artifactId>jakarta.enterprise.cdi-api</artifactId>
+      <version>4.0.1</version>
+      <scope>provided</scope>
+    </dependency>
 
     <!-- JUnit -->
     <dependency>
@@ -117,8 +116,106 @@
       <groupId>jakarta.inject</groupId>
       <artifactId>jakarta.inject-api</artifactId>
       <version>2.0.1</version>
-  </dependency>
+    </dependency>
+
+    <!-- PostgreSQL driver -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.2</version>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- Flyway for DB migrations -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr4-runtime</artifactId>
+      <version>4.13.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.yuvalshavit</groupId>
+      <artifactId>antlr-denter</artifactId>
+      <version>1.1</version>
+    </dependency>
+
   </dependencies>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
+  <profiles>
+    <profile>
+      <id>dev-install</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <!-- Override Javadoc plugin to skip it -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+
+          <!-- Override Source plugin to skip it -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+
+          <!-- Disable GPG signing -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 
   <build>
     <plugins>
@@ -126,17 +223,30 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
-         <configuration>
-            <source>17</source>
-            <target>17</target>
-            <annotationProcessorPaths>
-                <path>
-                  <groupId>org.projectlombok</groupId>
-                  <artifactId>lombok</artifactId>
-                  <version>1.18.30</version>
-                </path>
-            </annotationProcessorPaths>
-       </configuration>
+        <configuration>
+          <source>17</source>
+          <target>17</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>1.18.30</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.0</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -144,19 +254,109 @@
         <version>3.6.3</version>
         <executions>
           <execution>
-            <id>aggregate</id>
-            <phase>package</phase>
+            <id>attach-javadocs</id>
+            <phase>verify</phase>
             <goals>
-              <goal>aggregate</goal>
+              <goal>jar</goal>
             </goals>
           </execution>
         </executions>
         <configuration>
-            <source>17</source>
-            <failOnError>false</failOnError> 
-            <additionalJOption>-Xdoclint:none</additionalJOption>
+          <source>17</source>
+          <failOnError>false</failOnError>
+          <additionalJOption>-Xdoclint:none</additionalJOption>
         </configuration>
-    </plugin>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.5</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.7.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+        </configuration>
+      </plugin>
+      <!-- 1. Clean old ANTLR files (exec) -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <!-- Clean up before ANTLR -->
+          <execution>
+            <id>remove-antlr-files</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>./clean_antlr_files.sh</argument>
+                <argument>src/main/java/org/xresource/internal/intent/core/antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <!-- Inject package after ANTLR -->
+          <execution>
+            <id>inject-antlr-package</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>./inject_package.sh</argument>
+                <argument>src/main/java/org/xresource/internal/intent/core/antlr</argument>
+                <argument>org.xresource.internal.intent.core.antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- 2. ANTLR generation -->
+      <plugin>
+        <groupId>org.antlr</groupId>
+        <artifactId>antlr4-maven-plugin</artifactId>
+        <version>4.13.1</version>
+        <executions>
+          <execution>
+            <id>generate-antlr-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>antlr4</goal>
+            </goals>
+            <configuration>
+              <visitor>true</visitor>
+              <listener>false</listener>
+              <sourceDirectory>src/main/java/org/xresource/internal/intent/core/antlr</sourceDirectory>
+              <outputDirectory>src/main/java/org/xresource/internal/intent/core/antlr</outputDirectory>
+              <arguments>
+                <argument>-visitor</argument>
+                <argument>-no-listener</argument>
+                <argument>-package</argument>
+                <argument>org.xresource.internal.intent.core.antlr</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

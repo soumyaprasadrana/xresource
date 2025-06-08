@@ -10,10 +10,12 @@ import org.xresource.core.annotations.AccessLevel;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class XFieldMetadata {
     private String name;
     private boolean required;
@@ -36,6 +38,8 @@ public class XFieldMetadata {
     private String foreignKeyColumn;
     private String foreignKeyRefField;
     private String foreignKeyRefColumn;
+    private boolean compositeForeignKey = false;
+    private Map<String, String> compositeForeignKeyMap;
     private boolean controlledByAction;
     private boolean allowInsert = true;
     private boolean allowUpdate = true;

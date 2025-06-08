@@ -127,7 +127,12 @@ public class XAccessManager {
                 // Handle Hibernate proxy
                 if (fieldValue instanceof HibernateProxy || fieldValue instanceof PersistentCollection) {
                     if (!isNestedFkExplicitlyRequested) {
-                        Class<?> fieldValueRealClazz = Hibernate.getClass(fieldValue);
+
+                        Class<?> fieldValueRealClazz = fieldValue instanceof HibernateProxy
+                                ? ((HibernateProxy) fieldValue)
+                                        .getHibernateLazyInitializer()
+                                        .getPersistentClass()
+                                : ((PersistentCollection<?>) fieldValue).getOwner().getClass();
                         if (fieldValueRealClazz.isAnnotationPresent(Entity.class)) {
                             String resourceName = fieldValueRealClazz.getSimpleName();
                             Table table = fieldValueRealClazz.getAnnotation(Table.class);
@@ -157,7 +162,7 @@ public class XAccessManager {
                         fieldValue = ((HibernateProxy) fieldValue).getHibernateLazyInitializer().getImplementation();
                     } else if (fieldValue instanceof PersistentCollection) {
                         Hibernate.initialize(fieldValue);
-                        fieldValue = ((PersistentCollection) fieldValue).getStoredSnapshot();
+                        fieldValue = ((PersistentCollection<?>) fieldValue).getStoredSnapshot();
                     }
                 }
 

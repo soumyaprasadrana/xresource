@@ -45,7 +45,7 @@ import lombok.RequiredArgsConstructor;
  * @author soumya
  * @since xresource-core 0.1
  */
-@Component
+
 @RequiredArgsConstructor
 @Getter
 public class XAccessEvaluatorDelegate {
