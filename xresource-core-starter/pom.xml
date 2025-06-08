@@ -4,7 +4,7 @@
 
   <groupId>io.github.soumyaprasadrana</groupId>
   <artifactId>xresource-starter</artifactId>
-  <version>0.2</version>
+  <version>0.3</version>
   <name>xresource-starter</name>
   <description>Lightweight metadata-driven Spring Boot plugin framework for RESTful resource and patch lifecycle management</description>
   <url>https://github.com/soumyaprasadrana/xresource</url>
