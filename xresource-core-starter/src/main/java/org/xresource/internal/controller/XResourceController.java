@@ -281,7 +281,7 @@ public class XResourceController {
         Map<String, Object> context = contextProvider.buildContext(userContext, xQueryParams);
 
         XQuery xQuery = metadata.getXQuery(queryName)
-                .orElseThrow(() -> new RuntimeException("Query not found: " + queryName));
+                .orElseThrow(() -> new XResourceException("Query not found: " + queryName));
 
         if (isPaged) {
             int pg = page != null ? page : 0;
@@ -387,7 +387,7 @@ public class XResourceController {
         Map<String, Object> context = contextProvider.buildContext(userContext, xQueryParams);
 
         IntentMeta xIntent = metadata.getXIntent(intentName)
-                .orElseThrow(() -> new RuntimeException("Intent not found: " + intentName));
+                .orElseThrow(() -> new XResourceException("Intent not found: " + intentName));
 
         if (isPaged) {
             int pg = page != null ? page : 0;
@@ -853,7 +853,7 @@ public class XResourceController {
             fieldValue = requestedField.get(entity);
         } catch (Exception e) {
             log.error("Error accessing field '%s' in resource '%s': %s", field, resourceName, e.getMessage());
-            throw new RuntimeException(e);
+            throw new XResourceException(e.getMessage());
         }
 
         String fieldResourceName = null;
@@ -1347,7 +1347,7 @@ public class XResourceController {
             return result;
         } catch (Exception e) {
             log.error("Invalid xQueryParams format: %s", e.getMessage(), e);
-            throw new RuntimeException("Invalid xQueryParams format", e);
+            throw new XResourceException("Invalid xQueryParams format", e);
         }
     }
 

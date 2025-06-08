@@ -2,8 +2,6 @@ package org.xresource.internal.scanner;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.xresource.core.annotations.*;
-import org.xresource.internal.intent.core.parser.IntentParser;
-import org.xresource.internal.intent.core.parser.IntentToJPQLTransformer;
 import org.xresource.internal.intent.core.parser.model.IntentMeta;
 import org.xresource.core.logging.XLogger;
 import org.xresource.core.validation.XValidator;
@@ -133,10 +131,6 @@ public class XMetadataScanner {
         for (Field field : getAllFields(entityClass)) {
             processField(field, entityClass, metadata, externalFieldSchema, false);
         }
-
-        // Process Intents
-        Map<String, IntentMeta> xIntents = IntentParser.parseIntentMetadataMap(repository, metadata);
-        metadata.setXIntents(xIntents);
 
         log.info("Metadata scan complete for table: %s with %s fields.", tableName, metadata.getFields().size());
         if (repository.isAnnotationPresent(XResourceIgnore.class)) {

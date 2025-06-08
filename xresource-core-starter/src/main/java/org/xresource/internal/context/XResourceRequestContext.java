@@ -71,6 +71,9 @@ public class XResourceRequestContext {
                 if ("query".equalsIgnoreCase(segments.get(1))) {
                     this.queryName = segments.get(2);
                     this.operationType = "QUERY";
+                } else if ("intents".equalsIgnoreCase(segments.get(1))) {
+                    this.queryName = segments.get(2);
+                    this.operationType = "QUERY";
                 } else {
                     this.id = segments.get(1);
                     this.field = segments.get(2);

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Intent description="Get asset details with project, manager, city, region filters" name="assetComplexQuery1" resource="Asset" where="tag='TAG-2' AND City.name='City 4'">
+    <SelectAttribute field="assetId"/>
+    <SelectAttribute field="tag"/>
+    <SelectAttribute field="description"/>
+    <parameters>
+        <IntentParameter defaultValue="Region 5" name="regionName" source="STATIC" type="String"/>
+    </parameters>
+    <sortBy>
+        <value>assetId</value>
+    </sortBy>
+    <ResourceDrill>
+        <XResource name="AssetUsage">
+            <XResource name="Project">
+                <SelectAttribute aliasAs="ProjectTitle" field="title"/>
+                <XResource name="ProjectMember">
+                    <XResource name="Person">
+                        <SelectAttribute aliasAs="managerName" field="name"/>
+                        <XResource name="Address">
+                            <XResource name="City">
+                                <SelectAttribute aliasAs="cityName" field="name"/>
+                                <XResource name="Region">
+                                    <SelectAttribute aliasAs="regionName" field="name"/>
+                                    <JoinFilter binding="EXACT" field="name" param="regionName"/>
+                                </XResource>
+                            </XResource>
+                        </XResource>
+                    </XResource>
+                </XResource>
+            </XResource>
+        </XResource>
+        <XResource name="AssetMaintenance">
+            <SelectAttribute aliasAs="lastMaintenance" field="date"/>
+            <XResource name="ProjectMember">
+                <XResource name="Person">
+                    <SelectAttribute aliasAs="maintenanceOwner" field="name"/>
+                </XResource>
+            </XResource>
+        </XResource>
+    </ResourceDrill>
+</Intent>
