@@ -1,0 +1,12 @@
+Create Intent for resource Project as fetchCityProjects
+    Description "Get all Project of a city"
+    Select title
+    Include ProjectMember
+        Include Person
+            Select name as managerName
+            Include Address
+                Include City
+                    Select name as cityName
+                    Add filter for name having exact value from parameter cityName
+    Parameters
+            Param cityName with datatype String from source request

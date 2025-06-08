@@ -5,6 +5,7 @@ import org.xresource.core.annotations.AccessLevel;
 import org.xresource.core.annotations.XAction;
 import org.xresource.core.annotations.XForceAllowResourceRef;
 import org.xresource.core.annotations.XQuery;
+import org.xresource.core.intent.core.annotations.ParamSource;
 import org.xresource.core.logging.XLogger;
 import org.xresource.core.service.XResourceService;
 import org.xresource.internal.auth.XRoleBasedAccessEvaluator;
@@ -181,8 +182,17 @@ public class XOpenApiGenerator {
             queryParams.add(queryParam("sortBy", "string", "Field name to sort by"));
             queryParams.add(queryParam("direction", "string", "Sort direction: 'asc' or 'desc'"));
             queryParams.add(queryParam("foreignKeys", "string", "Comma-separated foreign key fields to expand"));
-            queryParams.add(queryParam("xQueryParams", "string",
-                    "JSON string containing query parameters. Example: { \"email\": \"user@example.com\" }"));
+            ArrayList<String> reqIntentParams = new ArrayList<String>();
+
+            query.getParameters().forEach(param -> {
+                if (param.getSource() == ParamSource.REQUEST)
+                    reqIntentParams.add(param.getName());
+            });
+
+            queryParams.add(queryParam("xIntentParams", "string",
+                    "JSON string containing intent parameters. Required Parameters : "
+                            + (reqIntentParams.size() > 0 ? reqIntentParams.toString() : "")
+                            + " Example: { \"email\": \"user@example.com\" }"));
 
             openApiEndpoints.add(buildEndpoint(baseApiPath, "GET", "/{resourceName}/intents/" + queryName,
                     "Execute Intent: " + queryName, queryParams));

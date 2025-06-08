@@ -1,13 +1,11 @@
 package org.xresource.internal.query;
 
 import org.xresource.core.annotations.XQuery;
-import org.xresource.core.intent.core.annotations.Intent;
-import org.xresource.core.intent.core.annotations.IntentParameter;
+import org.xresource.core.intent.core.annotations.ParamSource;
+import org.xresource.internal.exception.XResourceException;
 import org.xresource.internal.intent.core.parser.IntentToJPQLTransformer;
 import org.xresource.internal.intent.core.parser.model.IntentMeta;
 import org.xresource.internal.intent.core.parser.model.IntentParameterMeta;
-import org.xresource.internal.intent.core.parser.model.SelectAttributeMeta;
-import org.xresource.internal.intent.core.xml.XmlIntentParser;
 import org.xresource.internal.models.XResourceMetadata;
 import org.xresource.internal.registry.XResourceMetadataRegistry;
 import org.xresource.internal.util.XResourceGraphBuilder;
@@ -40,7 +38,7 @@ public class XQueryExecutor {
     public <T> List<T> executeQuery(Class<T> entityClass, XQuery query, Map<String, Object> context) {
         EntityManager entityManager = getEntityManager();
         if (query == null)
-            throw new RuntimeException("No XQuery provided for entity: " + entityClass.getSimpleName());
+            throw new XResourceException("No XQuery provided for entity: " + entityClass.getSimpleName());
 
         String jpql = "SELECT e FROM " + entityClass.getSimpleName() + " e WHERE " + query.where();
         TypedQuery<T> jpaQuery = entityManager.createQuery(jpql, entityClass);
@@ -72,7 +70,7 @@ public class XQueryExecutor {
             String sortBy,
             String direction) {
         if (query == null)
-            throw new RuntimeException("No XQuery provided for entity: " + entityClass.getSimpleName());
+            throw new XResourceException("No XQuery provided for entity: " + entityClass.getSimpleName());
 
         EntityManager entityManager = getEntityManager();
         String jpql = "SELECT e FROM " + entityClass.getSimpleName() + " e WHERE " + query.where();
@@ -111,7 +109,7 @@ public class XQueryExecutor {
             Map<String, Object> context) {
 
         if (intent == null)
-            throw new RuntimeException("No XIntent provided for entity: " + entityClass.getSimpleName());
+            throw new XResourceException("No XIntent provided for entity: " + entityClass.getSimpleName());
 
         EntityManager entityManager = getEntityManager();
         String jpql = IntentToJPQLTransformer.toJPQL(intent, XResourceGraphBuilder.getGraph(registry));
@@ -121,7 +119,11 @@ public class XQueryExecutor {
 
         for (IntentParameterMeta intentPara : intent.getParameters()) {
             String paramName = intentPara.getName();
-            Object resolvedValue = intentPara.getDefaultValue();
+            Object resolvedValue = intentPara.getSource() == ParamSource.REQUEST ? context.get(intentPara.getName())
+                    : intentPara.getDefaultValue();
+            if (resolvedValue == null) {
+                throw new XResourceException("Missing context value for:" + intentPara.getName());
+            }
             jpaQuery.setParameter(paramName, resolvedValue);
         }
 
@@ -156,7 +158,7 @@ public class XQueryExecutor {
             int size) {
 
         if (intent == null)
-            throw new RuntimeException("No XIntent provided");
+            throw new XResourceException("No XIntent provided");
 
         EntityManager entityManager = getEntityManager();
 
@@ -165,8 +167,14 @@ public class XQueryExecutor {
 
         // Execute as raw Object[]
         TypedQuery<Object[]> jpaQuery = entityManager.createQuery(jpql, Object[].class);
-        for (IntentParameterMeta param : intent.getParameters()) {
-            jpaQuery.setParameter(param.getName(), param.getDefaultValue());
+        for (IntentParameterMeta intentPara : intent.getParameters()) {
+            String paramName = intentPara.getName();
+            Object resolvedValue = intentPara.getSource() == ParamSource.REQUEST ? context.get(intentPara.getName())
+                    : intentPara.getDefaultValue();
+            if (resolvedValue == null) {
+                throw new XResourceException("Missing context value for:" + intentPara.getName());
+            }
+            jpaQuery.setParameter(paramName, resolvedValue);
         }
 
         jpaQuery.setFirstResult(page * size);
@@ -192,8 +200,14 @@ public class XQueryExecutor {
         // Count query
         String countJpql = IntentToJPQLTransformer.toJPQLCountQuery(intent, XResourceGraphBuilder.getGraph(registry));
         TypedQuery<Long> countQuery = entityManager.createQuery(countJpql, Long.class);
-        for (IntentParameterMeta param : intent.getParameters()) {
-            countQuery.setParameter(param.getName(), param.getDefaultValue());
+        for (IntentParameterMeta intentPara : intent.getParameters()) {
+            String paramName = intentPara.getName();
+            Object resolvedValue = intentPara.getSource() == ParamSource.REQUEST ? context.get(intentPara.getName())
+                    : intentPara.getDefaultValue();
+            if (resolvedValue == null) {
+                throw new XResourceException("Missing context value for:" + intentPara.getName());
+            }
+            countQuery.setParameter(paramName, resolvedValue);
         }
 
         long total = countQuery.getSingleResult();
@@ -210,7 +224,7 @@ public class XQueryExecutor {
             String sortBy,
             String direction) {
         if (xQueries == null || xQueries.isEmpty()) {
-            throw new RuntimeException("No XQueries provided for entity: " + entityClass.getSimpleName());
+            throw new XResourceException("No XQueries provided for entity: " + entityClass.getSimpleName());
         }
 
         StringBuilder whereBuilder = new StringBuilder();
@@ -315,7 +329,7 @@ public class XQueryExecutor {
     public <T> List<T> executeXQueries(Class<T> entityClass, Map<String, XQuery> xQueries,
             Map<String, Object> context) {
         if (xQueries == null || xQueries.isEmpty()) {
-            throw new RuntimeException("No XQueries provided for entity: " + entityClass.getSimpleName());
+            throw new XResourceException("No XQueries provided for entity: " + entityClass.getSimpleName());
         }
         EntityManager entityManager = getEntityManager();
         StringBuilder whereBuilder = new StringBuilder();
@@ -374,11 +388,11 @@ public class XQueryExecutor {
 
         Map<String, Object> userContext = (Map<String, Object>) context.get("user");
         if (userContext == null) {
-            throw new RuntimeException("Missing context value for: " + ctxKey);
+            throw new XResourceException("Missing context value for: " + ctxKey);
         }
         Object value = userContext.get(ctxKey);
         if (value == null) {
-            throw new RuntimeException("Missing context value for: " + ctxKey);
+            throw new XResourceException("Missing context value for: " + ctxKey);
         }
         return value;
     }
@@ -386,7 +400,7 @@ public class XQueryExecutor {
     public Object resolveContextValue(String ctxKey, Map<String, Object> context) {
         Object value = context.get(ctxKey);
         if (value == null) {
-            throw new RuntimeException("Missing context value for: " + ctxKey);
+            throw new XResourceException("Missing context value for: " + ctxKey);
         }
         return value;
     }
